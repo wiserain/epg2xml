@@ -402,8 +402,10 @@ function getEPG() {
         elseif($ChannelSource == 'LG') :
             GetEPGFromLG($ChannelInfo);
         elseif($ChannelSource == 'SK') :
+            sleep(5);
             GetEPGFromSK($ChannelInfo);
         elseif($ChannelSource == 'SKB') :
+            sleep(5);
             GetEPGFromSKB($ChannelInfo);
         elseif($ChannelSource == 'NAVER') :
             GetEPGFromNaver($ChannelInfo);
@@ -636,8 +638,8 @@ function GetEPGFromSKB($ChannelInfo) {
             if ($response === False && $GLOBALS['debug']) :
                 printError($ChannelName.HTTP_ERROR);
             else :
-		$response = str_replace('charset="EUC-KR"', 'charset="UTF-8"', $response);
-		$response = mb_convert_encoding($response, "UTF-8", "EUC-KR");
+                $response = str_replace('charset="EUC-KR"', 'charset="UTF-8"', $response);
+                $response = mb_convert_encoding($response, "UTF-8", "EUC-KR");
                 $response = preg_replace('/<!--(.*?)-->/is', '', $response);
                 $response = preg_replace('/<span class="round_flag flag02">(.*?)<\/span>/', '', $response);
                 $response = preg_replace('/<span class="round_flag flag03">(.*?)<\/span>/', '', $response);
@@ -647,8 +649,8 @@ function GetEPGFromSKB($ChannelInfo) {
                 $response = preg_replace('/<span class="round_flag flag11">(.*?)<\/span>/', '', $response);
                 $response = preg_replace('/<span class="round_flag flag12">(.*?)<\/span>/', '', $response);
                 $response = preg_replace('/<strong class="hide">프로그램 안내<\/strong>/', '', $response);
-		$response = preg_replace_callback('/<p class="cont">(.*)/', 'converthtmlspecialchars', $response);
-		$response = preg_replace_callback('/<p class="tit">(.*)/', 'converthtmlspecialchars', $response);
+                $response = preg_replace_callback('/<p class="cont">(.*)/', 'converthtmlspecialchars', $response);
+                $response = preg_replace_callback('/<p class="tit">(.*)/', 'converthtmlspecialchars', $response);
                 $dom = new DomDocument;
                 libxml_use_internal_errors(True);
                 if($dom->loadHTML('<?xml encoding="utf-8" ?>'.$response)):
@@ -675,7 +677,7 @@ function GetEPGFromSKB($ChannelInfo) {
                             if(isset($matches[5])) $subprogramName = trim($matches[5]) ?: "";
                             if(isset($matches[3])) $episode = $matches[3] ?: "";
                             if(isset($matches[7])) $rebroadcast = $matches[7] ? True : False;
-						endif;
+                        endif;
                         if(trim($cells->item(1)->childNodes->item(1)->nodeValue)) $rating = str_replace('세 이상', '', trim($cells->item(1)->childNodes->item(1)->nodeValue))  ?: 0;
                         //ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
                         $epginfo[] = array($ChannelId, $startTime, $programName, $subprogramName, $desc, $actors, $producers, $category, $episode, $rebroadcast, $rating);
@@ -952,7 +954,7 @@ function startsWith($haystack, $needle) {
 }
 
 function converthtmlspecialchars($match) {
-	return '<p class="cont">'.htmlspecialchars($match[1]);
+    return '<p class="cont">'.htmlspecialchars($match[1]);
 }
 
 //사용방법
