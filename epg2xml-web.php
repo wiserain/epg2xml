@@ -3,7 +3,7 @@
 @date_default_timezone_set('Asia/Seoul');
 error_reporting(E_ALL ^ E_NOTICE);
 @set_time_limit(0);
-define("VERSION", "1.2.6");
+define("VERSION", "1.2.6p1");
 $debug = False;
 $ua = "'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116'";
 $timeout = 5;
@@ -421,7 +421,7 @@ function GetEPGFromKT($ChannelInfo) {
     $ServiceId =  $ChannelInfo[3];
     $epginfo = array();
     foreach(range(1, $GLOBALS['period']) as $k) :
-        $url = "http://tv.kt.com/tv/channel/pSchedule.asp";
+        $url = "https://tv.kt.com/tv/channel/pSchedule.asp";
         $day = date("Ymd", strtotime("+".($k - 1)." days"));
         $params = array(
             'ch_type' => '1',
@@ -701,68 +701,67 @@ function GetEPGFromNaver($ChannelInfo) {
     $ServiceId =  $ChannelInfo[3];
     $epginfo = array();
     $totaldate = array();
-    $url = "https://search.naver.com/p/csearch/content/batchrender_ssl.nhn";
+    $url = "https://m.search.naver.com/p/csearch/content/nqapirender.nhn";
     foreach(range(1, $GLOBALS['period']) as $k) :
         $day = date("Ymd", strtotime("+".($k - 1)." days"));
-        $totaldate[] = $day;
-    endforeach;
-    $params = array(
-        '_callback' => 'epg',
-        'fileKey' => 'single_schedule_channel_day',
-        'pkid' => '66',
-        'u1' => 'single_schedule_channel_day',
-        'u2' => join(",", $totaldate),
-        'u3' => $day,
-        'u4' => $GLOBALS['period'],
-        'u5' => $ServiceId,
-        'u6' => 1,
-        'u7' => $ChannelName."편성표",
-        'u8' => $ChannelName."편성표",
-        'where' => 'nexearch'
-    );
-    $params = http_build_query($params);
-    $method = "GET";
-    try {
-        $response = getWeb($url, $params, $method);
-        if ($response === False && $GLOBALS['debug']) :
-            printError($ChannelName.HTTP_ERROR);
-        else :
-            try {
-                $response = str_replace('epg( ', '', $response );
-                $response = substr($response, 0, strlen($response)-2);
-                $response = preg_replace("/\/\*.*?\*\//","",$response);
-                $data = json_decode($response, TRUE);
-                if(json_last_error() != JSON_ERROR_NONE) throw new Exception(JSON_SYNTAX_ERROR);
-                 if($data['displayDates'][0]['count'] == 0) :
-                    if($GLOBALS['debug']) :
-                        printError($ChannelName.CHANNEL_ERROR);
+        $params = array(
+            'callback' => 'epg',
+            'key' => 'SingleChannelDailySchedule',
+            'where' => 'm',
+            'pkid' => '66',
+            'u1' => $ServiceId,
+            'u2' => $day
+        );
+        $params = http_build_query($params);
+        $method = "GET";
+        try {
+            $response = getWeb($url, $params, $method);
+            if ($response === False && $GLOBALS['debug']) :
+                printError($ChannelName.HTTP_ERROR);
+            else :
+                try {
+                    $response = str_replace('epg( ', '', $response);
+                    $response = substr($response, 0, strlen($response)-2);
+                    $response = preg_replace("/\/\*.*?\*\//","",$response);
+                    $data = json_decode($response, TRUE);
+                    if(json_last_error() != JSON_ERROR_NONE) throw new Exception(JSON_SYNTAX_ERROR);
+                     if($data['statusCode'] != 'SUCCESS') :
+                        if($GLOBALS['debug']) :
+                            printError($ChannelName.CHANNEL_ERROR);
+                        endif;
+                    else :
+                        foreach($data['dataHtml'] as $programs) :
+                            $dom = new DomDocument;
+                            libxml_use_internal_errors(True);
+                            if($dom->loadHTML('<?xml encoding="utf-8" ?>'.$programs)):
+                                $xpath = new DomXPath($dom);
+                                $query = "//ul[@class='ind_list']/li";
+                                $rows = $xpath->query($query);
+                                foreach($rows as $row):
+                                    $startTime = $endTime = $programName = $subprogramName = $desc = $actors = $producers = $category = $episode = "";
+                                    $rebroadcast = False;
+                                    $rating = 0;
+                                    $cells = $row->getElementsByTagName('div');
+                                    $programName = trim($cells->item(4)->nodeValue);
+                                    $startTime = date("YmdHis", strtotime($day." ".trim($cells->item(1)->nodeValue)));
+
+                                    $rebroadcast = strpos($cells->item(3)->nodeValue, '재') ? True : False;
+                                    $subprogramName = trim($cells->item(5)->nodeValue) ? trim($cells->item(5)->nodeValue) : "";
+                                    //ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
+                                    $epginfo[] = array($ChannelId, $startTime, $programName, $subprogramName, $desc, $actors, $producers, $category, $episode, $rebroadcast, $rating);
+                                    usleep(1000);
+                                endforeach;
+                            endif;
+                        endforeach;
                     endif;
-                else :
-                    for($i = 0; $i < count($data['displayDates']); $i++) :
-                        for($j = 0; $j < 24; $j++) :
-                            foreach($data['schedules'][$j][$i] as $program) :
-                                $startTime = $endTime = $programName = $subprogramName = $desc = $actors = $producers = $category = $episode = "";
-                                $rebroadcast = False;
-                                $rating = 0;
-                                $startTime = date("YmdHis", strtotime($data['displayDates'][$i]['date']." ".$program['startTime']));
-                                $programName = htmlspecialchars_decode(trim($program['title']), ENT_XML1);
-                                $episode = str_replace("회","", $program['episode']);
-                                $rebroadcast = $program['isRerun'] ? True : False;
-                                $rating = $program['grade'];
-                                //ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
-                                $epginfo[] = array($ChannelId, $startTime, $programName, $subprogramName, $desc, $actors, $producers, $category, $episode, $rebroadcast, $rating);
-                                usleep(1000);
-                            endforeach;
-                        endfor;
-                    endfor;
-                endif;
-             } catch(Exception $e) {
-                if($GLOBALS['debug']) printError($e->getMessage());
-            }
-        endif;
-    } catch (Exception $e) {
-        if($GLOBALS['debug']) printError($e->getMessage());
-    }
+                 } catch(Exception $e) {
+                    if($GLOBALS['debug']) printError($e->getMessage());
+                }
+            endif;
+        } catch (Exception $e) {
+            if($GLOBALS['debug']) printError($e->getMessage());
+        }
+    endforeach;
     if($epginfo) epgzip($epginfo);
 }
 

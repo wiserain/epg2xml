@@ -44,7 +44,7 @@ if not sys.version_info[:2] == (2, 7):
     sys.exit()
 
 # Set variable
-__version__ = '1.2.6'
+__version__ = '1.2.6p1'
 debug = False
 today = datetime.date.today()
 ua = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116'}
@@ -134,7 +134,7 @@ def GetEPGFromKT(ChannelInfo):
     ChannelName = ChannelInfo[1]
     ServiceId =  ChannelInfo[3]
     epginfo = []
-    url = 'http://tv.kt.com/tv/channel/pSchedule.asp'
+    url = 'https://tv.kt.com/tv/channel/pSchedule.asp'
     for k in range(period):
         day = today + datetime.timedelta(days=k)
         params = {'ch_type':'1', 'view_type':'1', 'service_ch_no':ServiceId, 'seldate':day.strftime('%Y%m%d')}
@@ -350,40 +350,50 @@ def GetEPGFromNaver(ChannelInfo):
     ChannelName = ChannelInfo[1]
     ServiceId =  ChannelInfo[3]
     epginfo = []
-    totaldate = []
-    url = 'https://search.naver.com/p/csearch/content/batchrender_ssl.nhn'
+    url = 'https://m.search.naver.com/p/csearch/content/nqapirender.nhn'
     for k in range(period):
         day = today + datetime.timedelta(days=k)
-        totaldate.append(day.strftime('%Y%m%d'))
-    params = {'_callback': 'epg', 'fileKey': 'single_schedule_channel_day', 'pkid': '66', 'u1': 'single_schedule_channel_day', 'u2': ','.join(totaldate), 'u3': today.strftime('%Y%m%d'), 'u4': period, 'u5': ServiceId, 'u6': '1', 'u7': ChannelName + '편성표', 'u8': ChannelName + '편성표', 'where': 'nexearch'}
-    try:
-        response = requests.get(url, params=params, headers=ua, timeout=timeout)
-        response.raise_for_status()
-        json_data = re.sub(re.compile("/\*.*?\*/",re.DOTALL ) ,"" ,response.text.split("epg(")[1].strip(");").strip())
+        params = {'callback': 'epg', 'key': 'SingleChannelDailySchedule', 'where': 'm', 'pkid': '66', 'u1': ServiceId, 'u2': day.strftime('%Y%m%d')}
         try:
-            data = json.loads(json_data, encoding='utf-8')
-            for i, date in enumerate(data['displayDates']):
-                for j in range(0,24):
-                    for program in data['schedules'][j][i]:
-                        startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
-                        rebroadcast = False
-                        rating = 0
-                        programName = unescape(program['title'])
-                        startTime = date['date'] + ' ' + program['startTime']
-                        startTime = datetime.datetime.strptime(startTime, '%Y%m%d %H:%M')
-                        startTime = startTime.strftime('%Y%m%d%H%M%S')
-                        episode = program['episode'].replace('회','')
-                        rebroadcast = program['isRerun']
-                        rating = program['grade']
-                         #ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
-                        epginfo.append([ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating])
-                        time.sleep(0.001)
-        except ValueError:
-             if(debug): printError(ChannelName + CONTENT_ERROR)
-             else: pass
-    except (requests.RequestException) as e:
-        if(debug): printError(ChannelName + str(e))
-        else: pass
+            response = requests.get(url, params=params, headers=ua, timeout=timeout)
+            response.raise_for_status()
+            json_data = re.sub(re.compile("/\*.*?\*/",re.DOTALL ) ,"" ,response.text.split("epg(")[1].strip(");").strip())
+            try:
+                data = json.loads(json_data, encoding='utf-8')
+                if data['statusCode'] != 'SUCCESS':
+                    if(debug): printError(ChannelName + CONTENT_ERROR)
+                    else: pass
+                else :
+                    for ul in data['dataHtml']:
+                        strainer = SoupStrainer('ul', {'class':'ind_list'})
+                        soup = BeautifulSoup(ul, htmlparser, parse_only=strainer)
+                        html = soup.find_all('li', {'class':'list'}) if soup.find('ul', {'class':'ind_list'}) else ''
+                        if html:
+                            for row in html:
+                                for cell in [row.find_all('div')]:
+                                    startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
+                                    rebroadcast = False
+                                    rating = 0
+                                    programName = unescape(cell[4].text.strip())
+                                    startTime = str(day) + ' ' + cell[1].text.strip()
+                                    startTime = datetime.datetime.strptime(startTime, '%Y-%m-%d %H:%M')
+                                    startTime = startTime.strftime('%Y%m%d%H%M%S')
+                                    rebroadcast = True if cell[3].find('span', {'class':'re'}) else False
+                                    try:
+                                        subprogramName = cell[5].text.strip()
+                                    except: subprogramName = ''
+                                    epginfo.append([ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating])
+                                    time.sleep(0.001)
+                        else:
+                            if(debug): printError(ChannelName + CONTENT_ERROR)
+                            else: pass
+
+            except ValueError:
+                 if(debug): printError(ChannelName + CONTENT_ERROR)
+                 else: pass
+        except (requests.RequestException) as e:
+            if(debug): printError(ChannelName + str(e))
+            else: pass
     if(epginfo) :
         epgzip(epginfo)
 
