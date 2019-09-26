@@ -44,10 +44,10 @@ if not sys.version_info[:2] == (2, 7):
     sys.exit()
 
 # Set variable
-__version__ = '1.2.6p1'
+__version__ = '1.2.6p2'
 debug = False
 today = datetime.date.today()
-ua = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116'}
+ua = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'}
 timeout = 5
 htmlparser = 'lxml'
 CHANNEL_ERROR = ' 존재하지 않는 채널입니다.'
@@ -230,7 +230,7 @@ def GetEPGFromSK(ChannelInfo):
     ChannelName = ChannelInfo[1]
     ServiceId =  ChannelInfo[3]
     lastday = today + datetime.timedelta(days=period-1)
-    url = 'http://m.btvplus.co.kr/common/inc/IFGetData.do'
+    url = 'http://mapp.btvplus.co.kr/common/inc/IFGetData.do'
     params = {'variable': 'IF_LIVECHART_DETAIL', 'pcode':'|^|start_time=' + today.strftime('%Y%m%d') + '00|^|end_time='+ lastday.strftime('%Y%m%d') + '24|^|svc_id=' + str(ServiceId)}
     try:
         response = requests.post(url, data=params, headers=ua, timeout=timeout)
@@ -238,8 +238,8 @@ def GetEPGFromSK(ChannelInfo):
         json_data = response.text
         try:
             data = json.loads(json_data, encoding='utf-8')
-            if (data['channel'] is None) :
-                 if(debug): printError(ChannelName + CONTENT_ERROR)
+            if(data['result'] != 'OK'):
+                 if(debug): printError(ChannelName + ' ' + data['reason'])
                  else: pass
             else :
                 programs = data['channel']['programs']
