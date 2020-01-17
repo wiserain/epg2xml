@@ -3,11 +3,12 @@
 @date_default_timezone_set('Asia/Seoul');
 error_reporting(E_ALL ^ E_NOTICE);
 @set_time_limit(0);
-define("VERSION", "1.2.6p2");
+define("VERSION", "1.2.7");
 $debug = False;
 $ua = "'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'";
 $timeout = 5;
 $req_timeout = 10;
+$channel_sleep = 1;
 define("CHANNEL_ERROR", " 존재하지 않는 채널입니다.");
 define("CONTENT_ERROR ", " EPG 정보가 없습니다.");
 define("HTTP_ERROR", " EPG 정보를 가져오는데 문제가 있습니다.");
@@ -396,16 +397,16 @@ function getEPG() {
         $ChannelName =  $ChannelInfo[1];
         $ChannelSource =  $ChannelInfo[2];
         $ChannelServiceId =  $ChannelInfo[3];
-        if($GLOBALS['debug']) printLog($ChannelName.' 채널 EPG 데이터를 가져오고 있습니다');
+        if($GLOBALS['debug']) printLog($ChannelName.' 채널 EPG 데이터를 가져오고 있습니다.');
         if($ChannelSource == 'KT') :
             GetEPGFromKT($ChannelInfo);
         elseif($ChannelSource == 'LG') :
             GetEPGFromLG($ChannelInfo);
         elseif($ChannelSource == 'SK') :
-            sleep(5);
+            sleep($GLOBALS['channel_sleep']);
             GetEPGFromSK($ChannelInfo);
         elseif($ChannelSource == 'SKB') :
-            sleep(5);
+            sleep($GLOBALS['channel_sleep']);
             GetEPGFromSKB($ChannelInfo);
         elseif($ChannelSource == 'NAVER') :
             GetEPGFromNaver($ChannelInfo);
@@ -545,77 +546,88 @@ function GetEPGFromSK($ChannelInfo) {
     $ChannelId = $ChannelInfo[0];
     $ChannelName = $ChannelInfo[1];
     $ServiceId =  $ChannelInfo[3];
-    $today = date("Ymd");
-    $lastday = date("Ymd", strtotime("+".($GLOBALS['period'] - 1)." days"));
-    $url = "http://mapp.btvplus.co.kr/common/inc/IFGetData.do";
-    $params = array(
-        'variable' => 'IF_LIVECHART_DETAIL',
-        'pcode' => '|^|start_time='.$today.'00|^|end_time='.$lastday.'24|^|svc_id='.$ServiceId
-    );
-    $params = http_build_query($params);
-    $method = "POST";
-    try {
-        $response = getWeb($url, $params, $method);
-        if ($response === False && $GLOBALS['debug']) :
-            printError($ChannelName.HTTP_ERROR);
-        else :
-            try {
-                $data = json_decode($response, TRUE);
-                if(json_last_error() != JSON_ERROR_NONE) throw new Exception(JSON_SYNTAX_ERROR);
-                if(strcmp($data['result'], 'OK') != 0) :
-                    if($GLOBALS['debug']) :
-                        printError($ChannelName.' '.$data['reason']);
+    foreach(range(1, $GLOBALS['period']) as $k) :		// epg 데이터 가져오는 기간 Loop : 오늘 날짜부터 지정된 일수 날짜까지 Loop
+        $procDay = date("Ymd", strtotime("+".($k - 1)." days"));
+
+        $url = "http://mapp.btvplus.co.kr/sideMenu/live/IFGetData.do";
+        $params = array(
+            'variable' => 'IF_LIVECHART_DETAIL',
+            'o_date' => $procDay,
+            'svc_ids' => $ServiceId
+        );
+      
+        $params = http_build_query($params);
+        $method = "POST";
+        try {
+            $response = getWeb($url, $params, $method);
+            //writeLog ($method." ".$url."?".$params." -> Len=".strlen($response));		// 2020.01.16 DEBUG 용도
+
+            if ($response === False && $GLOBALS['debug']) :
+                printError($ChannelName.HTTP_ERROR);
+            else :
+                try {
+                    $data = json_decode($response, TRUE);
+                    if(json_last_error() != JSON_ERROR_NONE) throw new Exception(JSON_SYNTAX_ERROR);
+                    if(strcmp($data['result'], 'OK') != 0) :
+                        if($GLOBALS['debug']) :
+                            printError($ChannelName.' '.$data['reason']);
+                        endif;
+                    else :
+                        foreach ($data['ServiceInfoArray'] as $ServiceInfoArray) {
+
+                            $programs = $ServiceInfoArray['EventInfoArray'];
+
+                            foreach ($programs as $program) :
+                                $startTime = $endTime = $programName = $subprogramName = $desc = $actors = $producers = $category = $episode = "";
+                                $rebroadcast = False;
+                                $rating = 0;
+                                $programName = $program['NM_TITLE'];
+                                $pattern = '/^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$/';
+                                preg_match($pattern, str_replace('...', '>', $program['NM_TITLE']), $matches);
+                                if ($matches != NULL) :
+                                    if(isset($matches[1])) $programName = trim($matches[1]) ?: "";
+                                    if(isset($matches[3])) $subprogramName = trim($matches[3]) ?: "";
+                                    if(isset($matches[2])) $episode = str_replace("회", "", $matches[2]) ?: "";
+                                    if(isset($matches[5])) $rebroadcast = $matches[5] ? True : False;
+                                endif;
+                                $startTime = $program['DT_EVNT_START'];
+                                $endTime = $program['DT_EVNT_END'];
+                                $desc = $program['NM_SYNOP'] ?: "";
+                                $actors = trim(str_replace('...','',$program['AdditionalInfoArray'][0]['NM_ACT']), ', ') ?: "";
+                                $producers = trim(str_replace('...','',$program['AdditionalInfoArray'][0]['NM_DIRECTOR']), ', ') ?: "";
+                                if ($program['CD_CATEGORY'] != NULL) :
+                                    $category = $program['CD_CATEGORY'];
+                                else:
+                                    $category = "";
+                                endif;
+                                $rating = $program['CD_RATING'] ?: 0;
+                                $programdata = array(
+                                    'channelId'=> $ChannelId,
+                                    'startTime' => $startTime,
+                                    'endTime' => $endTime,
+                                    'programName' => $programName,
+                                    'subprogramName'=> $subprogramName,
+                                    'desc' => $desc,
+                                    'actors' => $actors,
+                                    'producers' => $producers,
+                                    'category' => $category,
+                                    'episode' => $episode,
+                                    'rebroadcast' => $rebroadcast,
+                                    'rating' => $rating
+                                );
+                                writeProgram($programdata);
+                                usleep(1000);
+                            endforeach;
+                        }
                     endif;
-                else :
-                    $programs = $data['channel']['programs'];
-                    foreach ($programs as $program) :
-                        $startTime = $endTime = $programName = $subprogramName = $desc = $actors = $producers = $category = $episode = "";
-                        $rebroadcast = False;
-                        $rating = 0;
-                        $pattern = '/^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$/';
-                        preg_match($pattern, str_replace('...', '>', $program['programName']), $matches);
-                        if ($matches != NULL) :
-                            if(isset($matches[1])) $programName = trim($matches[1]) ?: "";
-                            if(isset($matches[3])) $subprogramName = trim($matches[3]) ?: "";
-                            if(isset($matches[2])) $episode = str_replace("회", "", $matches[2]) ?: "";
-                            if(isset($matches[5])) $rebroadcast = $matches[5] ? True : False;
-                        endif;
-                        $startTime = date("YmdHis",$program['startTime']/1000);
-                        $endTime = date("YmdHis",$program['endTime']/1000);
-                        $desc = $program['synopsis'] ?: "";
-                        $actors =trim(str_replace('...','',$program['actorName']), ', ') ?: "";
-                        $producers = trim(str_replace('...','',$program['directorName']), ', ') ?: "";
-                        if ($program['mainGenreName'] != NULL) :
-                            $category = $program['mainGenreName'];
-                        else:
-                            $category = "";
-                        endif;
-                        $rating = $program['ratingCd'] ?: 0;
-                        $programdata = array(
-                            'channelId'=> $ChannelId,
-                            'startTime' => $startTime,
-                            'endTime' => $endTime,
-                            'programName' => $programName,
-                            'subprogramName'=> $subprogramName,
-                            'desc' => $desc,
-                            'actors' => $actors,
-                            'producers' => $producers,
-                            'category' => $category,
-                            'episode' => $episode,
-                            'rebroadcast' => $rebroadcast,
-                            'rating' => $rating
-                        );
-                        writeProgram($programdata);
-                        usleep(1000);
-                    endforeach;
-                endif;
-            } catch(Exception $e) {
-                if($GLOBALS['debug']) printError($e->getMessage());
-            }
-        endif;
-    } catch (Exception $e) {
-        if($GLOBALS['debug']) printError($e->getMessage());
-    }
+                } catch(Exception $e) {
+                    if($GLOBALS['debug']) printError($e->getMessage());
+                }
+            endif;
+        } catch (Exception $e) {
+            if($GLOBALS['debug']) printError($e->getMessage());
+        }
+    endforeach;		// end of -- epg 데이터 가져오는 기간 Loop
 }
 
 // Get EPG data from SKB
@@ -920,9 +932,38 @@ function getWeb($url, $params, $method) {
     curl_setopt($ch, CURLOPT_FAILONERROR, True);
     curl_setopt($ch, CURLOPT_USERAGENT, $GLOBALS['ua']);
     $response = curl_exec($ch);
-    if(curl_error($ch) && $GLOBALS['debug']) printError($url." ".curl_error($ch));
+    //if(curl_error($ch) && $GLOBALS['debug']) printError($url." ".curl_error($ch));
+    if(curl_error($ch)) writeLog ($method." ".$url."?".$params." -> ".curl_error($ch), "error");
     curl_close($ch);
+    
+    // writeLog ($method." ".$url."?".$params." -> Len=".strlen($response));		// 2020.01.16 DEBUG 용도
+
     return $response;
+}
+
+function writeLog($logmsg, $logname = "epg") {		// 2020.01.16 DEBUG 용도로 추가
+    $logdir = dirname( __FILE__ ) . "/logs";
+    if (!is_dir($logdir)) {
+        if (!mkdir($logdir, 0777, true)) {
+            return false;
+        }
+    }
+
+    date_default_timezone_set("Asia/Seoul");	// 2019.10.07 추가 - 선언 안 하면 -9시간으로 로그가 기록됨.
+
+    $yyyymm = date("Ym");
+    $logfile = $logdir."/".$logname.$yyyymm.".log";
+    $datetime = date("Y-m-d H:i:s");
+    $logmsg = preg_replace('/\s+/', ' ', $logmsg);		// 로그를 1줄로 기록
+
+    if ($fh = fopen($logfile, "a")) {
+        fwrite($fh, $datetime." ".$logmsg."\n");
+        fclose($fh);
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 function printLog($string) {
