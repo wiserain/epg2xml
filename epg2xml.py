@@ -42,7 +42,7 @@ if not sys.version_info[:2] == (2, 7):
     sys.exit()
 
 # Set variable
-__version__ = '1.2.7'
+__version__ = '1.2.7p1'
 debug = False
 today = date.today()
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
@@ -600,10 +600,8 @@ def writeSKPrograms(ChannelInfo, programs):
             episode = matches.group(2).replace('회', '') if matches.group(2) else ''
             episode = '' if episode == '0' else episode
             rebroadcast = True if matches.group(5) else False
-        startTime = datetime.fromtimestamp(int(program['DT_EVNT_START']) / 1000)
-        startTime = startTime.strftime('%Y%m%d%H%M%S')
-        endTime = datetime.fromtimestamp(int(program['DT_EVNT_END']) / 1000)
-        endTime = endTime.strftime('%Y%m%d%H%M%S')
+        startTime = program['DT_EVNT_START']
+        endTime = program['DT_EVNT_END']
         desc = program['NM_SYNOP'] if program['NM_SYNOP'] else ''
         if 'AdditionalInfoArray' in program:
             info_array = program['AdditionalInfoArray'][0]
