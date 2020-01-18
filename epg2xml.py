@@ -75,7 +75,8 @@ def getEpg():
     print('<tv generator-info-name="epg2xml ' + __version__ + '">')
 
     # My Channel 정의
-    MyChannelInfo = [ch for ch in range(500)] if debug else [int(ch.strip()) for ch in MyChannels.split(',') if ch]
+    MyChannelInfo = [int(ch.strip()) for ch in MyChannels.split(',') if ch]
+    # MyChannelInfo = [ch for ch in range(500)]       # debug
 
     for Channeldata in Channeldatajson:     # Get Channel & Print Channel info
         if Channeldata['Id'] in MyChannelInfo:
@@ -300,7 +301,8 @@ def GetEPGFromSK_Multi(ChannelInfos):
                     programs = channels[ServiceId]
                     writeSKPrograms(ChannelInfo, programs)
                 else:
-                    printError(ChannelName + CHANNEL_ERROR)
+                    if debug:
+                        printError(ChannelName + CHANNEL_ERROR)
                     time.sleep(0.001)
                     continue
         except ValueError:
