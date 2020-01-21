@@ -2,6 +2,10 @@
   - SK 사이트 변경 대응
   - 여러 채널 한번에 가져오는 SK 함수 추가 (파이썬만)
   - 파이썬 버전의 SK 채널에서 날짜 오류 수정 (p1)
+  - logging 및 RotatingFileHandler 사용 (p2, 파이썬만)
+  - ISP 별로 가져오도록 함수 변경 (p2, 파이썬만)
+  - requests.session 세션 유지 (p2, 파이썬만)
+  - WAVVE/POOQ EPG 추가 (p2, 파이썬만)
 ### Version 1.2.6
   - SKB 함수 버그 수정
   - KT, LG, SK, SKB, NAVER 이외의 함수 삭제
