@@ -6,6 +6,10 @@
   - ISP 별로 가져오도록 함수 변경 (p2, 파이썬만)
   - requests.session 세션 유지 (p2, 파이썬만)
   - WAVVE/POOQ EPG 추가 (p2, 파이썬만)
+  - open 대신 codecs.open 사용 및 json io 함수 (p3, 파이썬만)
+  - Channel_{SK,WAVVE}.json 템플릿 출력 (p3, 파이썬만)
+  - SK, WAVVE 잘못된 ServiceId 사전 차단 (p3, 파이썬만)
+  - WAVVE 상세 설명에 <br> 삽입 문제 해결 (p3, 파이썬만)
 ### Version 1.2.6
   - SKB 함수 버그 수정
   - KT, LG, SK, SKB, NAVER 이외의 함수 삭제

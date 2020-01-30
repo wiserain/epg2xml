@@ -7,10 +7,10 @@ import sys
 import imp
 import time
 import json
-import codecs
 import socket
 import logging
 import argparse
+from codecs import open
 from functools import partial
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta, date
@@ -19,11 +19,11 @@ from xml.sax.saxutils import escape, unescape
 #
 # default variables
 #
-__version__ = '1.2.7p2'
-debug = True
+__version__ = '1.2.7p3'
+debug = False
 today = date.today()
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
-timeout = 5
+req_timeout = 5
 req_sleep = 1
 htmlparser = 'lxml'
 loglevel = logging.DEBUG if debug else logging.INFO
@@ -90,7 +90,10 @@ def getEpg():
     print('<tv generator-info-name="epg2xml ' + __version__ + '">')
 
     # My Channel 정의
-    MyChannelInfo = [ch.strip() for ch in MyChannels.split(',') if ch]
+    if debug:
+        MyChannelInfo = [str(ch) for ch in range(500)]  # debug
+    else:
+        MyChannelInfo = [ch.strip() for ch in MyChannels.split(',') if ch]
 
     ChannelInfos = []
     for Channeldata in Channeldatajson:     # Get Channel & Print Channel info
@@ -128,7 +131,7 @@ def getEpg():
     GetEPGFromWAVVE([c for c in Channeldatajson if c['Source'] == 'POOQ' or c['Source'] == 'WAVVE'])
 
     print('</tv>')
-    log.info('성공적으로 가져왔습니다.')
+    log.info('종료합니다.')
 
 
 def GetEPGFromKT(ChannelInfos):
@@ -155,7 +158,7 @@ def GetEPGFromKT(ChannelInfos):
             day = today + timedelta(days=k)
             params.update({'service_ch_no': ChannelInfo[3], 'seldate': day.strftime('%Y%m%d')})
             try:
-                response = sess.post(url, data=params, timeout=timeout)
+                response = sess.post(url, data=params, timeout=req_timeout)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.content, htmlparser, parse_only=SoupStrainer('tbody'))
                 html = soup.find_all('tr') if soup.find('tbody') else ''
@@ -208,7 +211,7 @@ def GetEPGFromLG(ChannelInfos):
             day = today + timedelta(days=k)
             params.update({'chnlCd': ChannelInfo[3], 'evntCmpYmd': day.strftime('%Y%m%d')})
             try:
-                response = sess.post(url, data=params, timeout=timeout)
+                response = sess.post(url, data=params, timeout=req_timeout)
                 response.raise_for_status()
                 data = unicode(response.content, 'euc-kr', 'ignore').encode('utf-8', 'ignore')
                 data = data.replace('<재>', '&lt;재&gt;').replace(' [..', '').replace(' (..', '')
@@ -257,43 +260,67 @@ def GetEPGFromSK(ChannelInfos):
 
     url = 'http://mapp.btvplus.co.kr/sideMenu/live/IFGetData.do'
     referer = 'http://mapp.btvplus.co.kr/channelFavor.do'
-    params = {
-        'variable': 'IF_LIVECHART_DETAIL',
-        'o_date': 'EPGDATE',
-        'svc_ids': 'SVCID1|SVCID2',
-    }
+    icon_url = 'http://mapp.btvplus.co.kr/data/btvplus/admobd/channelLogo/nsepg_{}.png'
 
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
-    for k in range(period):
-        day = today + timedelta(days=k)
-        params.update({
-            'o_date': day.strftime('%Y%m%d'),
-            'svc_ids': '|'.join([info[3] for info in ChannelInfos]),
-        })
+    def request_json(form_data):
+        ret = []
         try:
-            response = sess.post(url, data=params, timeout=timeout)
+            response = sess.post(url, data=form_data, timeout=req_timeout)
             response.raise_for_status()
             data = response.json()
             if data['result'].lower() == 'ok':
-                channels = {x['ID_SVC']: x['EventInfoArray'] for x in data['ServiceInfoArray']}
-                for ChannelInfo in ChannelInfos:
-                    ServiceId = ChannelInfo[3]
-                    if ServiceId in channels:
-                        programs = channels[ServiceId]
-                        writeSKPrograms(ChannelInfo, programs)
-                    else:
-                        log.info('EPG 정보가 없거나 없는 채널입니다: %s %s' % (day.strftime('%Y%m%d'), ChannelInfo))
+                ret = data['ServiceInfoArray']
             else:
                 log.error('유효한 응답이 아닙니다: %s' % data['reason'])
         except ValueError as e:
             log.error(str(e))
         except requests.exceptions.RequestException as e:
             log.error('요청 중 에러: %s' % str(e))
+        return ret
 
-        # req_sleep
-        time.sleep(req_sleep)
+    # dump all available channels to json
+    json_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_SK.json')
+    json_rawdata = request_json({'variable': 'IF_LIVECHART_ALL'})
+    all_channels = [{'SK Name': x['NM_CH'], 'SKCh': int(x['NO_CH']), 'Icon_url': icon_url.format(x['ID_SVC']), 'Source': 'SK', 'ServiceId': x['ID_SVC']} for x in json_rawdata]
+    notice = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(all_channels)}]
+    dump_json(json_fname, notice + all_channels)
+
+    # remove unavailable channels in advance
+    all_services = [x['ID_SVC'] for x in json_rawdata]
+    newChannelInfos = []
+    for ChannelInfo in ChannelInfos:
+        ServiceId = ChannelInfo[3]
+        if ServiceId in all_services:
+            newChannelInfos.append(ChannelInfo)
+        else:
+            log.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
+
+    params = {
+        'variable': 'IF_LIVECHART_DETAIL',
+        'o_date': 'EPGDATE',
+        'svc_ids': '|'.join([info[3].strip() for info in newChannelInfos]),
+    }
+
+    # CD_GENRE가 채널에도 프로그램에도 str(int)로 들어오는데 어떻게 활용하지?
+
+    for k in range(period):
+        day = today + timedelta(days=k)
+        params.update({'o_date': day.strftime('%Y%m%d')})
+        channels = {x['ID_SVC']: x['EventInfoArray'] for x in request_json(params)}
+        time.sleep(req_sleep)       # request sleep
+
+        for ChannelInfo in newChannelInfos:
+            ServiceId = ChannelInfo[3]
+            if ServiceId in channels:
+                programs = channels[ServiceId]
+                writeSKPrograms(ChannelInfo, programs)
+            else:
+                log.warning('해당 날짜에 EPG 정보가 없거나 없는 채널입니다: %s %s' % (day.strftime('%Y%m%d'), ChannelInfo))
+
+    log.info('SK EPG 완료: {}/{}개 채널'.format(len(newChannelInfos), len(ChannelInfos)))
 
 
 def GetEPGFromSKB(ChannelInfos):
@@ -301,6 +328,15 @@ def GetEPGFromSKB(ChannelInfos):
         log.info('SKB EPG 데이터를 가져오고 있습니다.')
     else:
         return
+
+    def replacement(match, tag):
+        if match:
+            tag = tag.strip()
+            programName = unescape(match.group(1)).replace('<', '&lt;').replace('>', '&gt;').strip()
+            programName = '<' + tag + ' class="cont">' + programName
+            return programName
+        else:
+            return ''
 
     url = 'http://m.skbroadband.com/content/realtime/Channel_List.do'
     referer = 'http://m.skbroadband.com/content/realtime/Channel_List.do'
@@ -315,7 +351,7 @@ def GetEPGFromSKB(ChannelInfos):
             day = today + timedelta(days=k)
             params.update({'key_depth2': ChannelInfo[3], 'key_depth3': day.strftime('%Y%m%d')})
             try:
-                response = sess.get(url, params=params, timeout=timeout)
+                response = sess.get(url, params=params, timeout=req_timeout)
                 response.raise_for_status()
                 html_data = response.content
                 data = unicode(html_data, 'euc-kr', 'ignore').encode('utf-8', 'ignore')
@@ -402,7 +438,7 @@ def GetEPGFromNaver(ChannelInfos):
             day = today + timedelta(days=k)
             params.update({'u1': ChannelInfo[3], 'u2': day.strftime('%Y%m%d')})
             try:
-                response = sess.get(url, params=params, timeout=timeout)
+                response = sess.get(url, params=params, timeout=req_timeout)
                 response.raise_for_status()
                 json_data = re.sub(re.compile("/\*.*?\*/", re.DOTALL), "", response.text.split("epg(")[1].strip(");").strip())
                 try:
@@ -451,7 +487,7 @@ def GetEPGFromWAVVE(reqChannels):
     else:
         return
 
-    '''    
+    '''
     개별채널: https://apis.pooq.co.kr/live/epgs/channels/{ServideId}
     전체채널: https://apis.pooq.co.kr/live/epgs
     정보량은 거의 비슷
@@ -484,14 +520,35 @@ def GetEPGFromWAVVE(reqChannels):
         'enddatetime': (today + timedelta(days=period-1)).strftime('%Y-%m-%d') + ' 24:00',
     })
 
-    # for caching program details
-    programdict = {}
-
     try:
-        response = sess.get(url, params=params, timeout=timeout)
+        response = sess.get(url, params=params, timeout=req_timeout)
         response.raise_for_status()
         channellist = response.json()['list']
         channeldict = {x['channelid']: x for x in channellist}
+
+        # dump all available channels to json
+        json_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_WAVVE.json')
+        all_channels = [{'WAVVE Name': x['channelname'], 'Icon_url': 'https://' + x['channelimage'], 'Source': 'WAVVE',
+                         'ServiceId': x['channelid']} for x in channellist]
+        notice = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(all_channels)}]
+        dump_json(json_fname, notice + all_channels)
+
+        # remove unavailable channels in advance
+        all_services = [x['channelid'] for x in channellist]
+        tmpChannels = []
+        for reqChannel in reqChannels:
+            if reqChannel['ServiceId'] in all_services:
+                tmpChannels.append(reqChannel)
+            else:
+                log.warning('없는 서비스 아이디입니다: %s', reqChannel)
+
+        if debug:
+            reqChannels = all_channels  # request all channels
+        else:
+            reqChannels = tmpChannels
+
+        # for caching program details
+        programcache = {}
 
         for reqChannel in reqChannels:
             if 'ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict:
@@ -514,7 +571,8 @@ def GetEPGFromWAVVE(reqChannels):
                     endTime = datetime.strptime(program['endtime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
 
                     # TODO: 제목 너무 지저분/부실하네
-                    programName = unescape(program['title'].strip())
+                    # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
+                    programName = unescape(program['title'].encode('utf-8', 'ignore'))
                     pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
                     matches = re.match(pattern, programName)
                     if matches:
@@ -528,14 +586,20 @@ def GetEPGFromWAVVE(reqChannels):
 
                     # 추가 정보 가져오기
                     programid = program['programid'].strip()
-                    if programid:
-                        programdict = getWAVVEProgramDetails(programdict, programid, sess)
-                        programdetail = programdict[programid]
+                    if programid and (programid not in programcache):
+                        # 개별 programid가 없는 경우도 있으니 체크해야함
+                        programdetail = getWAVVEProgramDetails(programid, sess)
+                        if programdetail is not None:
+                            programdetail[u'hit'] = 0  # to know cache hit rate
+                            programcache[programid] = programdetail
 
+                    if (programid in programcache) and bool(programcache[programid]):
+                        programcache[programid][u'hit'] += 1
+                        programdetail = programcache[programid]
                         # TODO: 추가 제목 정보 활용
                         # programtitle = programdetail['programtitle']
                         # log.info('%s / %s' % (programName, programtitle))
-                        desc = programdetail['programsynopsis'].strip()
+                        desc = '\n'.join([x.strip() for x in programdetail['programsynopsis'].split('<br>')])
                         category = programdetail['genretext'].strip()
                         iconurl = 'https://' + programdetail['programposterimage'].strip()
                         # tags = programdetail['tags']['list'][0]['text']
@@ -559,50 +623,47 @@ def GetEPGFromWAVVE(reqChannels):
                     })
             else:
                 log.info('EPG 정보가 없거나 없는 채널입니다: %s' % reqChannel)
-    except ValueError as e:
-        log.error(str(e))
+        log.info('WAVVE EPG 완료: {}개 채널'.format(len(reqChannels)))
     except requests.exceptions.RequestException as e:
         log.error('요청 중 에러: %s' % str(e))
+    except Exception as e:
+        log.error('알 수 없는 에러: %s' % str(e))
 
-    # req_sleep
-    time.sleep(req_sleep)
 
+def getWAVVEProgramDetails(programid, sess):
+    url = 'https://apis.pooq.co.kr/vod/programs-contentid/' + programid
+    referer = 'https://www.wavve.com/player/vod?programid=' + programid
+    param = {
+        "apikey": "E5F3E0D30947AA5440556471321BB6D9",
+        "credential": "none",
+        "device": "pc",
+        "drm": "wm",
+        "partner": "pooq",
+        "pooqzone": "none",
+        "region": "kor",
+        "targetage": "auto"
+    }
+    sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
-def getWAVVEProgramDetails(programdict, programid, sess):
-    if programid not in programdict:
-        url = 'https://apis.pooq.co.kr/vod/programs-contentid/' + programid
-        referer = 'https://www.wavve.com/player/vod?programid=' + programid
-        param = {
-            "apikey": "E5F3E0D30947AA5440556471321BB6D9",
-            "credential": "none",
-            "device": "pc",
-            "drm": "wm",
-            "partner": "pooq",
-            "pooqzone": "none",
-            "region": "kor",
-            "targetage": "auto"
-        }
-        sess.headers.update({'User-Agent': ua, 'Referer': referer})
+    ret = None
+    try:
+        res = sess.get(url, params=param, timeout=req_timeout)
+        res.raise_for_status()
+        contentid = res.json()['contentid'].strip()
 
-        try:
-            res = sess.get(url, params=param, timeout=timeout)
-            res.raise_for_status()
-            contentid = res.json()['contentid'].strip()
+        time.sleep(req_sleep)       # request sleep
 
-            url2 = 'https://apis.pooq.co.kr/cf/vod/contents/' + contentid
-            # url2 = 'https://apis.pooq.co.kr/vod/contents/' + contentid    # 같은 주소
-            res2 = sess.get(url2, params=param, timeout=timeout)
-            res2.raise_for_status()
-            programdict[programid] = res2.json()
-        except ValueError as e:
-            log.error(str(e))
-        except requests.exceptions.RequestException as e:
-            log.error('요청 중 에러: %s' % str(e))
-
-        # req_sleep
-        time.sleep(req_sleep)
-
-    return programdict
+        # url2 = 'https://apis.pooq.co.kr/cf/vod/contents/' + contentid
+        url2 = 'https://apis.pooq.co.kr/vod/contents/' + contentid    # 같은 주소지만 이게 더 안정적인듯
+        res2 = sess.get(url2, params=param, timeout=req_timeout)
+        res2.raise_for_status()
+        ret = res2.json()
+    except requests.exceptions.RequestException as e:
+        log.error('요청 중 에러: %s' % str(e))
+    except Exception as e:
+        log.error('알 수 없는 에러: %s' % str(e))
+    time.sleep(req_sleep)  # request sleep
+    return ret
 
 
 def epgzip(epginfo):
@@ -787,49 +848,43 @@ def writeSKPrograms(ChannelInfo, programs):
         writeProgram(programdata)
 
 
-def replacement(match, tag):
-    if match:
-        tag = tag.strip()
-        programName = unescape(match.group(1)).replace('<', '&lt;').replace('>', '&gt;').strip()
-        programName = '<' + tag + ' class="cont">' + programName
-        return programName
-    else:
-        return ''
+def load_json(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except EnvironmentError as e:
+        log.error("파일을 읽을 수 없습니다: %s", str(e))
+        sys.exit(1)
+    except ValueError as e:
+        log.error("파일 형식이 잘못되었습니다: %s", str(e))
+        sys.exit(1)
 
 
-Channelfile = os.path.dirname(os.path.abspath(__file__)) + '/Channel.json'
-try:
-    with open(Channelfile) as f:    # Read Channel Information file
-        Channeldatajson = json.load(f)
-except EnvironmentError:
-    log.error("Channel.json 파일을 읽을 수 없습니다.")
-    sys.exit(1)
-except ValueError:
-    log.error("Channel.json 파일 형식이 잘못되었습니다.")
-    sys.exit(1)
+def dump_json(file_path, data):
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        log.error("파일 저장 중 에러: %s", str(e))
 
 
-Settingfile = os.path.dirname(os.path.abspath(__file__)) + '/epg2xml.json'
-try:
-    with open(Settingfile) as f:    # Read epg2xml.json file
-        Settings = json.load(f)
-        MyISP = Settings['MyISP'] if 'MyISP' in Settings else 'ALL'
-        MyChannels = Settings['MyChannels'] if 'MyChannels' in Settings else ''
-        default_output = Settings['output'] if 'output' in Settings else 'd'
-        default_xml_file = Settings['default_xml_file'] if 'default_xml_file' in Settings else 'xmltv.xml'
-        default_xml_socket = Settings['default_xml_socket'] if 'default_xml_socket' in Settings else 'xmltv.sock'
-        default_icon_url = Settings['default_icon_url'] if 'default_icon_url' in Settings else None
-        default_fetch_limit = Settings['default_fetch_limit'] if 'default_fetch_limit' in Settings else '2'
-        default_rebroadcast = Settings['default_rebroadcast'] if 'default_rebroadcast' in Settings else 'y'
-        default_episode = Settings['default_episode'] if 'default_episode' in Settings else 'y'
-        default_verbose = Settings['default_verbose'] if 'default_verbose' in Settings else 'n'
-        default_xmltvns = Settings['default_xmltvns'] if 'default_xmltvns' in Settings else 'n'
-except EnvironmentError:
-    log.error("epg2xml.json 파일을 읽을 수 없습니다.")
-    sys.exit(1)
-except ValueError:
-    log.error("epg2xml.json 파일 형식이 잘못되었습니다.")
-    sys.exit(1)
+Channelfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel.json')
+Channeldatajson = load_json(Channelfile)
+
+Settingfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'epg2xml.json')
+Settings = load_json(Settingfile)
+
+MyISP = Settings['MyISP'] if 'MyISP' in Settings else 'ALL'
+MyChannels = Settings['MyChannels'] if 'MyChannels' in Settings else ''
+default_output = Settings['output'] if 'output' in Settings else 'd'
+default_xml_file = Settings['default_xml_file'] if 'default_xml_file' in Settings else 'xmltv.xml'
+default_xml_socket = Settings['default_xml_socket'] if 'default_xml_socket' in Settings else 'xmltv.sock'
+default_icon_url = Settings['default_icon_url'] if 'default_icon_url' in Settings else None
+default_fetch_limit = Settings['default_fetch_limit'] if 'default_fetch_limit' in Settings else '2'
+default_rebroadcast = Settings['default_rebroadcast'] if 'default_rebroadcast' in Settings else 'y'
+default_episode = Settings['default_episode'] if 'default_episode' in Settings else 'y'
+default_verbose = Settings['default_verbose'] if 'default_verbose' in Settings else 'n'
+default_xmltvns = Settings['default_xmltvns'] if 'default_xmltvns' in Settings else 'n'
 
 parser = argparse.ArgumentParser(description='EPG 정보를 출력하는 방법을 선택한다')
 argu1 = parser.add_argument_group(description='IPTV 선택')
@@ -945,7 +1000,7 @@ else:
 
 if output == "file":
     if default_xml_file:
-        sys.stdout = codecs.open(default_xml_file, 'w+', encoding='utf-8')
+        sys.stdout = open(default_xml_file, 'w+', encoding='utf-8')
     else:
         log.error("epg2xml.json 파일의 default_xml_file항목이 없습니다.")
         sys.exit(1)
