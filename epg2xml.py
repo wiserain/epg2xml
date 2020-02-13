@@ -1,16 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import os
 import re
 import sys
-import imp
 import time
 import json
 import socket
 import logging
 import argparse
-from codecs import open
 from functools import partial
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta, date
@@ -56,29 +54,23 @@ log.addHandler(consolehandler)
 # import third-parties
 #
 try:
-    imp.find_module('bs4')
     from bs4 import BeautifulSoup, SoupStrainer
 except ImportError:
     log.error("BeautifulSoup 모듈이 설치되지 않았습니다.")
     sys.exit(1)
 try:
-    imp.find_module('lxml')
     from lxml import html
 except ImportError:
     log.error("lxml 모듈이 설치되지 않았습니다.")
     sys.exit(1)
 try:
-    imp.find_module('requests')
     import requests
 except ImportError:
     log.error("requests 모듈이 설치되지 않았습니다.")
     sys.exit(1)
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
-
-if sys.version_info[:2] != (2, 7):
-    log.error("python 2.7 버전이 필요합니다.")
+if list(sys.version_info[:2]) < [3, 5]:
+    log.error("python 3.5+에서 실행하세요.")
     sys.exit(1)
 
 
@@ -213,9 +205,9 @@ def GetEPGFromLG(ChannelInfos):
             try:
                 response = sess.post(url, data=params, timeout=req_timeout)
                 response.raise_for_status()
-                data = unicode(response.content, 'euc-kr', 'ignore').encode('utf-8', 'ignore')
+                data = response.text
                 data = data.replace('<재>', '&lt;재&gt;').replace(' [..', '').replace(' (..', '')
-                soup = BeautifulSoup(data, htmlparser, parse_only=SoupStrainer('table'), from_encoding='utf-8')
+                soup = BeautifulSoup(data, htmlparser, parse_only=SoupStrainer('table'))
                 html = soup.find('table').tbody.find_all('tr') if soup.find('table') else ''
                 if html:
                     for row in html:
@@ -229,7 +221,7 @@ def GetEPGFromLG(ChannelInfos):
                             rating = 0 if rating_str == 'All' else int(rating_str)
                             cell[1].find('span', {'class': 'tagGroup'}).decompose()
                             pattern = '(<재>)?\s?(?:\[.*?\])?(.*?)(?:\[(.*)\])?\s?(?:\(([\d,]+)회\))?$'
-                            matches = re.match(pattern, cell[1].text.strip().decode('string_escape'))
+                            matches = re.match(pattern, cell[1].text.strip())
                             if matches:
                                 programName = matches.group(2).strip() if matches.group(2) else ''
                                 subprogramName = matches.group(3).strip() if matches.group(3) else ''
@@ -264,7 +256,7 @@ def GetEPGFromSK(ChannelInfos):
 
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
-
+    
     def request_json(form_data):
         ret = []
         try:
@@ -353,8 +345,7 @@ def GetEPGFromSKB(ChannelInfos):
             try:
                 response = sess.get(url, params=params, timeout=req_timeout)
                 response.raise_for_status()
-                html_data = response.content
-                data = unicode(html_data, 'euc-kr', 'ignore').encode('utf-8', 'ignore')
+                data = response.text
                 data = re.sub('EUC-KR', 'utf-8', data)
                 data = re.sub('<!--(.*?)-->', '', data, 0, re.I | re.S)
                 data = re.sub('<span class="round_flag flag02">(.*?)</span>', '', data)
@@ -368,7 +359,7 @@ def GetEPGFromSKB(ChannelInfos):
                 data = re.sub('<p class="cont">(.*)', partial(replacement, tag='p'), data)
                 data = re.sub('<p class="tit">(.*)', partial(replacement, tag='p'), data)
                 strainer = SoupStrainer('div', {'id': 'uiScheduleTabContent'})
-                soup = BeautifulSoup(data, htmlparser, parse_only=strainer, from_encoding='utf-8')
+                soup = BeautifulSoup(data, htmlparser, parse_only=strainer)
                 html = soup.find_all('li', {'class': 'list'}) if soup.find_all('li') else ''
                 if html:
                     for row in html:
@@ -381,12 +372,12 @@ def GetEPGFromSKB(ChannelInfos):
                         cell = row.find('p', {'class': 'cont'})
                         grade = row.find('i', {'class': 'hide'})
                         if grade is not None:
-                            rating = int(grade.text.decode('string_escape').replace('세 이상', '').strip())
+                            rating = int(grade.text.replace('세 이상', '').strip())
 
                         if cell:
                             if cell.find('span'):
                                 cell.span.decompose()
-                            cell = cell.text.decode('string_escape').strip()
+                            cell = cell.text.strip()
                             pattern = "^(.*?)(\(([\d,]+)회\))?(<(.*)>)?(\((재)\))?$"
                             matches = re.match(pattern, cell)
 
@@ -572,7 +563,7 @@ def GetEPGFromWAVVE(reqChannels):
 
                     # TODO: 제목 너무 지저분/부실하네
                     # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
-                    programName = unescape(program['title'].encode('utf-8', 'ignore'))
+                    programName = unescape(program['title'])
                     pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
                     matches = re.match(pattern, programName)
                     if matches:
@@ -591,7 +582,7 @@ def GetEPGFromWAVVE(reqChannels):
                         programdetail = getWAVVEProgramDetails(programid, sess)
                         if programdetail is not None:
                             programdetail[u'hit'] = 0  # to know cache hit rate
-                            programcache[programid] = programdetail
+                        programcache[programid] = programdetail
 
                     if (programid in programcache) and bool(programcache[programid]):
                         programcache[programid][u'hit'] += 1
@@ -599,7 +590,7 @@ def GetEPGFromWAVVE(reqChannels):
                         # TODO: 추가 제목 정보 활용
                         # programtitle = programdetail['programtitle']
                         # log.info('%s / %s' % (programName, programtitle))
-                        desc = '\n'.join([x.strip() for x in programdetail['programsynopsis'].split('<br>')])
+                        desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
                         category = programdetail['genretext'].strip()
                         iconurl = 'https://' + programdetail['programposterimage'].strip()
                         # tags = programdetail['tags']['list'][0]['text']
@@ -706,7 +697,7 @@ def writeProgram(programdata):
     endTime = programdata['endTime']
     programName = escape(programdata['programName']).strip()
     subprogramName = escape(programdata['subprogramName']).strip()
-    matches = re.match('(.*) \(?(\d+부)\)?', unescape(programName.encode('utf-8', 'ignore')))
+    matches = re.match('(.*) \(?(\d+부)\)?', unescape(programName))
     if matches:
         programName = escape(matches.group(1)).strip()
         subprogramName = escape(matches.group(2)) + ' ' + subprogramName
@@ -770,7 +761,7 @@ def writeProgram(programdata):
         '홈쇼핑': 'Advertisement / Shopping'
     }
     contentType = ''
-    for key, value in contentTypeDict.iteritems():
+    for key, value in contentTypeDict.items():
         if key in category:
             contentType = value
     print('  <programme start="%s +0900" stop="%s +0900" channel="%s">' % (startTime, endTime, ChannelId))
@@ -813,7 +804,7 @@ def writeSKPrograms(ChannelInfo, programs):
     for program in programs:
         startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
         rebroadcast = False
-        programName = program['NM_TITLE'].replace('...', '>').encode('utf-8')
+        programName = program['NM_TITLE'].replace('...', '>')
         pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
         matches = re.match(pattern, programName)
         if matches:
