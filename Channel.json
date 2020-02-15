@@ -341,5 +341,6 @@
 { "Id": 485, "Name": "etn 연예채널", "KT Name": "", "KTCh": null, "LG Name": "", "LGCh": null, "SK Name": "", "SKCh": null, "Radio Name": "", "RadioCh": null, "Icon_url": "http://i.imgur.com/0BHBt0h.png", "Source": "NAVER", "ServiceId": "815229" },
 { "Id": 492, "Name": "스크린 골프존", "KT Name": "", "KTCh": null, "LG Name": "", "LGCh": null, "SK Name": "스크린 골프존", "SKCh": 138, "Radio Name": "", "RadioCh": null, "Icon_url": "https://i.imgur.com/oa1VbRv.png", "Source": "SKB", "ServiceId": "138" },
 { "Id": 493, "Name": "신기한나라TV", "KT Name": "", "KTCh": null, "LG Name": "", "LGCh": null, "SK Name": "신기한나라TV", "SKCh": 188, "Radio Name": "", "RadioCh": null, "Icon_url": "https://i.imgur.com/qYzAXDx.png", "Source": "SKB", "ServiceId": "386" },
-{ "Id": 494, "Name": "디자이어TV", "KT Name": "", "KTCh": null, "LG Name": "디자이어TV", "LGCh": 294, "SK Name": "디자이어TV", "SKCh": 325, "Radio Name": "", "RadioCh": null, "Icon_url": "https://i.imgur.com/AocuvNk.png", "Source": "SKB", "ServiceId": "200" }
+{ "Id": 494, "Name": "디자이어TV", "KT Name": "", "KTCh": null, "LG Name": "디자이어TV", "LGCh": 294, "SK Name": "디자이어TV", "SKCh": 325, "Radio Name": "", "RadioCh": null, "Icon_url": "https://i.imgur.com/AocuvNk.png", "Source": "SKB", "ServiceId": "200" },
+{ "Source": "WAVVE", "ServiceId": "K01" }
 ]
