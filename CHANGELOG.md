@@ -1,3 +1,5 @@
+### Version 1.2.9
+  - SK 장르 수정
 ### Version 1.2.8
   - python3.5+ 지원
   - python2.7 지원 종료

@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape, unescape
 #
 # default variables
 #
-__version__ = '1.2.8'
+__version__ = '1.2.9'
 debug = False
 today = date.today()
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
@@ -295,8 +295,6 @@ def GetEPGFromSK(ChannelInfos):
         'o_date': 'EPGDATE',
         'svc_ids': '|'.join([info[3].strip() for info in newChannelInfos]),
     }
-
-    # CD_GENRE가 채널에도 프로그램에도 str(int)로 들어오는데 어떻게 활용하지?
 
     for k in range(period):
         day = today + timedelta(days=k)
@@ -801,6 +799,20 @@ def writeProgram(programdata):
 
 
 def writeSKPrograms(ChannelInfo, programs):
+    genre_code = {
+        '1': '드라마',
+        '2': '영화',
+        '4': '만화',
+        '8': '스포츠',
+        '9': '교육',
+        '11': '홈쇼핑',
+        '13': '예능',
+        '14': '시사/다큐',
+        '15': '음악',
+        '16': '라이프',
+        '17': '교양',
+        '18': '뉴스',
+    }
     for program in programs:
         startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
         rebroadcast = False
@@ -820,7 +832,10 @@ def writeSKPrograms(ChannelInfo, programs):
             info_array = program['AdditionalInfoArray'][0]
             actors = info_array['NM_ACT'].replace('...', '').strip(', ') if info_array['NM_ACT'] else ''
             producers = info_array['NM_DIRECTOR'].replace('...', '').strip(', ') if info_array['NM_DIRECTOR'] else ''
-        category = program['CD_CATEGORY'] if 'CD_CATEGORY' in program else ''
+        if program['CD_GENRE'] and (program['CD_GENRE'] in genre_code):
+            category = genre_code[program['CD_GENRE']]
+        else:
+            category = ''
         rating = int(program['CD_RATING']) if program['CD_RATING'] else 0
         programdata = {
             'channelId': ChannelInfo[0],
