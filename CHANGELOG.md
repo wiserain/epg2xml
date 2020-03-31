@@ -1,3 +1,5 @@
+### Version 1.2.11
+  - lxml이 설치되지 않아도 종료하지 않고 html.parser로 동작
 ### Version 1.2.10
   - KT 한글 인코딩 수정
 ### Version 1.2.9
