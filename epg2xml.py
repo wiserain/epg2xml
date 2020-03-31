@@ -152,7 +152,7 @@ def GetEPGFromKT(ChannelInfos):
             try:
                 response = sess.post(url, data=params, timeout=req_timeout)
                 response.raise_for_status()
-                soup = BeautifulSoup(response.content, htmlparser, parse_only=SoupStrainer('tbody'))
+                soup = BeautifulSoup(response.text, htmlparser, parse_only=SoupStrainer('tbody'))
                 html = soup.find_all('tr') if soup.find('tbody') else ''
                 if html:
                     for row in html:
