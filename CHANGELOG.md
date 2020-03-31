@@ -1,3 +1,5 @@
+### Version 1.2.10
+  - KT 한글 인코딩 수정
 ### Version 1.2.9
   - SK 장르 수정
 ### Version 1.2.8
