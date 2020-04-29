@@ -1,3 +1,12 @@
+### Version 1.3.0
+  - 수정: request timeout 5 → 15초
+  - 추가: CLI에서 logfile, configfile, channelfile 경로, loglevel 지정 가능
+  - 추가: CLI에서 channelid 입력 가능
+  - 제거: CLI에서 몇몇 옵션 제거
+  - 수정: logfile backupcount 10 → 5
+  - 수정: 로그 메시지 명확하게
+  - 수정: 옵션 파싱 방법 개선
+  - 추가: 채널 입력 방법 간편하게
 ### Version 1.2.12
   - 파일/소켓 쓰기 모드 수정
 ### Version 1.2.11
