@@ -883,6 +883,34 @@ def dump_json(file_path, data):
         log.warning(str(e))
 
 
+def dump_channels(name_suffix, channels):
+    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_%s.json' % name_suffix)
+    headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(channel_dict)}]
+    dump_json(filename, headers + channels)
+
+
+def request_data(url, params, method='GET', output='html', session=None, ret=''):
+    sess = requests.Session() if session is None else session
+    try:
+        if method == 'GET':
+            r = sess.get(url, params=params, timeout=req_timeout)
+        elif method == 'POST':
+            r = sess.post(url, data=params, timeout=req_timeout)
+        else:
+            raise ValueError('Unexpected method: %s', method)
+        r.raise_for_status()
+        if output.lower() == 'html':
+            ret = r.text
+        elif output.lower() == 'json':
+            ret = r.json()
+        else:
+            raise ValueError('Unexpected output type: %s', output)
+    except Exception as e:
+        log.error('요청 중 에러: %s' % str(e))
+    time.sleep(req_sleep)
+    return ret
+
+
 Channeldatajson = load_json(args['channelfile'])
 json_conf = load_json(args['configfile'])
 
