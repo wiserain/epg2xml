@@ -9,6 +9,7 @@ import socket
 import logging
 import argparse
 from functools import partial
+from urllib.parse import unquote
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta, date
 from xml.sax.saxutils import escape, unescape
@@ -147,8 +148,8 @@ def GetEPGFromKT(ChannelInfos):
     url = 'https://tv.kt.com/tv/channel/pSchedule.asp'
     referer = 'https://tv.kt.com/'
     params = {
-        'ch_type': '1',
-        'view_type': '1',
+        'ch_type': '1',             # 1: live 2: skylife 3: uhd live 4: uhd skylife
+        'view_type': '1',           # 1: daily 2: weekly
         'service_ch_no': 'SVCID',
         'seldate': 'EPGDATE',
     }
@@ -156,44 +157,51 @@ def GetEPGFromKT(ChannelInfos):
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
+    # check all available channels
+    try:
+        url_ch = 'https://tv.kt.com/tv/channel/pChList.asp'
+        params_ch = {"ch_type": "1", "parent_menu_id": "0"}
+        soup = BeautifulSoup(request_data(url_ch, params_ch, method='POST', output='html', session=sess), htmlparser)
+        raw_channels = [unquote(x.find('span', {'class': 'ch'}).text.strip()) for x in soup.select('li > a')]
+        all_channels = [{
+            'KT Name': ' '.join(x.split()[1:]),
+            'KTCh': int(x.split()[0]),
+            'Source': 'KT',
+            'ServiceId': x.split()[0]
+        } for x in raw_channels]
+        dump_channels('KT', all_channels)
+        all_services = [x['ServiceId'] for x in all_channels]
+    except Exception as e:
+        log.error('체널 목록을 가져오지 못했습니다: %s', str(e))
+        all_services = [x[3] for x in ChannelInfos]
+
     for ChannelInfo in ChannelInfos:
+        if ChannelInfo[3] not in all_services:
+            log.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
+            continue
         epginfo = []
         for k in range(period):
             day = today + timedelta(days=k)
             params.update({'service_ch_no': ChannelInfo[3], 'seldate': day.strftime('%Y%m%d')})
             try:
-                response = sess.post(url, data=params, timeout=req_timeout)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, htmlparser, parse_only=SoupStrainer('tbody'))
-                html = soup.find_all('tr') if soup.find('tbody') else ''
-                if html:
-                    for row in html:
-                        for cell in [row.find_all('td')]:
-                            startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
-                            rebroadcast = False
-                            for minute, program, category in zip(cell[1].find_all('p'), cell[2].find_all('p'), cell[3].find_all('p')):
-                                startTime = str(day) + ' ' + cell[0].text.strip() + ':' + minute.text.strip()
-                                startTime = datetime.strptime(startTime, '%Y-%m-%d %H:%M')
-                                startTime = startTime.strftime('%Y%m%d%H%M%S')
-                                programName = program.text.replace('방송중 ', '').strip()
-                                category = category.text.strip()
-                                for image in [program.find_all('img', alt=True)]:
-                                    grade = re.match('([\d,]+)', image[0]['alt'])
-                                    rating = int(grade.group(1)) if grade else 0
-                                # ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
-                                epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating])
-                else:
-                    log.warning('EPG 정보가 없거나 없는 채널입니다: %s' % ChannelInfo)
-                    # 오늘 없으면 내일도 없는 채널로 간주
-                    break
-            except requests.exceptions.RequestException as e:
-                log.error('요청 중 에러: %s: %s' % (ChannelInfo, str(e)))
-
-            # req_sleep
-            time.sleep(req_sleep)
-
-        if epginfo:
-            epgzip(epginfo)
+                data = request_data(url, params, method='POST', output='html', session=sess)
+                soup = BeautifulSoup(data, htmlparser, parse_only=SoupStrainer('tbody'))
+                for row in soup.find_all('tr'):
+                    cell = row.find_all('td')
+                    for minute, program, category in zip(cell[1].find_all('p'), cell[2].find_all('p'), cell[3].find_all('p')):
+                        startTime = str(day) + ' ' + cell[0].text.strip() + ':' + minute.text.strip()
+                        startTime = datetime.strptime(startTime, '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+                        programName = program.text.replace('방송중 ', '').strip()
+                        category = category.text.strip()
+                        rating = 0
+                        for image in program.find_all('img', alt=True):
+                            grade = re.match('([\d,]+)', image['alt'])
+                            if grade:
+                                rating = int(grade.group(1))
+                        epginfo.append([ChannelInfo[0], startTime, programName, '', '', '', '', category, '', False, rating])
+            except Exception as e:
+                log.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+        epgzip(epginfo)
 
 
 def GetEPGFromLG(ChannelInfos):
@@ -666,37 +674,38 @@ def getWAVVEProgramDetails(programid, sess):
 
 
 def epgzip(epginfo):
-    epginfo = iter(epginfo)
-    epg1 = next(epginfo)
-    for epg2 in epginfo:
-        ChannelId = epg1[0]
-        startTime = epg1[1] if epg1[1] else ''
-        endTime = epg2[1] if epg2[1] else ''
-        programName = epg1[2] if epg1[2] else ''
-        subprogramName = epg1[3] if epg1[3] else ''
-        desc = epg1[4] if epg1[4] else ''
-        actors = epg1[5] if epg1[5] else ''
-        producers = epg1[6] if epg1[6] else ''
-        category = epg1[7] if epg1[7] else ''
-        episode = epg1[8] if epg1[8] else ''
-        rebroadcast = True if epg1[9] else False
-        rating = int(epg1[10]) if epg1[10] else 0
-        programdata = {
-            'channelId': ChannelId,
-            'startTime': startTime,
-            'endTime': endTime,
-            'programName': programName,
-            'subprogramName': subprogramName,
-            'desc': desc,
-            'actors': actors,
-            'producers': producers,
-            'category': category,
-            'episode': episode,
-            'rebroadcast': rebroadcast,
-            'rating': rating
-        }
-        writeProgram(programdata)
-        epg1 = epg2
+    # ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
+    if epginfo:
+        epginfo = iter(epginfo)
+        epg1 = next(epginfo)
+        for epg2 in epginfo:
+            ChannelId = epg1[0]
+            startTime = epg1[1] if epg1[1] else ''
+            endTime = epg2[1] if epg2[1] else ''
+            programName = epg1[2] if epg1[2] else ''
+            subprogramName = epg1[3] if epg1[3] else ''
+            desc = epg1[4] if epg1[4] else ''
+            actors = epg1[5] if epg1[5] else ''
+            producers = epg1[6] if epg1[6] else ''
+            category = epg1[7] if epg1[7] else ''
+            episode = epg1[8] if epg1[8] else ''
+            rebroadcast = True if epg1[9] else False
+            rating = int(epg1[10]) if epg1[10] else 0
+            writeProgram({
+                'channelId': ChannelId,
+                'startTime': startTime,
+                'endTime': endTime,
+                'programName': programName,
+                'subprogramName': subprogramName,
+                'desc': desc,
+                'actors': actors,
+                'producers': producers,
+                'category': category,
+                'episode': episode,
+                'rebroadcast': rebroadcast,
+                'rating': rating
+            })
+            epg1 = epg2
 
 
 def writeProgram(programdata):
@@ -885,7 +894,7 @@ def dump_json(file_path, data):
 
 def dump_channels(name_suffix, channels):
     filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_%s.json' % name_suffix)
-    headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(channel_dict)}]
+    headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(channels)}]
     dump_json(filename, headers + channels)
 
 
