@@ -222,46 +222,35 @@ def GetEPGFromLG(ChannelInfos):
         for k in range(period):
             day = today + timedelta(days=k)
             params.update({'chnlCd': ChannelInfo[3], 'evntCmpYmd': day.strftime('%Y%m%d')})
+            data = request_data(url, params, method='POST', output='html', session=sess)
             try:
-                response = sess.post(url, data=params, timeout=req_timeout)
-                response.raise_for_status()
-                data = response.text
                 data = data.replace('<재>', '&lt;재&gt;').replace(' [..', '').replace(' (..', '')
                 soup = BeautifulSoup(data, htmlparser, parse_only=SoupStrainer('table'))
-                html = soup.find('table').tbody.find_all('tr') if soup.find('table') else ''
-                if html:
-                    for row in html:
-                        for cell in [row.find_all('td')]:
-                            startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
-                            rebroadcast = False
-                            startTime = str(day) + ' ' + cell[0].text
-                            startTime = datetime.strptime(startTime, '%Y-%m-%d %H:%M')
-                            startTime = startTime.strftime('%Y%m%d%H%M%S')
-                            rating_str = cell[1].find('span', {'class': 'tag cte_all'}).text.strip()
-                            rating = 0 if rating_str == 'All' else int(rating_str)
-                            cell[1].find('span', {'class': 'tagGroup'}).decompose()
-                            pattern = '(<재>)?\s?(?:\[.*?\])?(.*?)(?:\[(.*)\])?\s?(?:\(([\d,]+)회\))?$'
-                            matches = re.match(pattern, cell[1].text.strip())
-                            if matches:
-                                programName = matches.group(2).strip() if matches.group(2) else ''
-                                subprogramName = matches.group(3).strip() if matches.group(3) else ''
-                                episode = matches.group(4) if matches.group(4) else ''
-                                rebroadcast = True if matches.group(1) else False
-                            category = cell[2].text.strip()
-                            # ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
-                            epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating])
-                else:
+                if not str(soup):
                     log.warning('EPG 정보가 없거나 없는 채널입니다: %s' % ChannelInfo)
                     # 오늘 없으면 내일도 없는 채널로 간주
                     break
-            except requests.exceptions.RequestException as e:
-                log.error('요청 중 에러: %s: %s' % (ChannelInfo, str(e)))
-
-            # req_sleep
-            time.sleep(req_sleep)
-
-        if epginfo:
-            epgzip(epginfo)
+                for row in soup.find('table').tbody.find_all('tr'):
+                    cell = row.find_all('td')
+                    startTime = str(day) + ' ' + cell[0].text
+                    startTime = datetime.strptime(startTime, '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+                    rating_str = cell[1].find('span', {'class': 'tag cte_all'}).text.strip()
+                    rating = 0 if rating_str == 'All' else int(rating_str)
+                    cell[1].find('span', {'class': 'tagGroup'}).decompose()
+                    pattern = r'\s?(?:\[.*?\])?(.*?)(?:\[(.*)\])?\s?(?:\(([\d,]+)회\))?\s?(<재>)?$'
+                    matches = re.match(pattern, cell[1].text.strip())
+                    if matches:
+                        programName = matches.group(1).strip() if matches.group(1) else ''
+                        subprogramName = matches.group(2).strip() if matches.group(2) else ''
+                        episode = matches.group(3) if matches.group(3) else ''
+                        rebroadcast = True if matches.group(4) else False
+                    else:
+                        programName, subprogramName, episode, rebroadcast = '', '', '', False
+                    category = cell[2].text.strip()
+                    epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, '', '', '', category, episode, rebroadcast, rating])
+            except Exception as e:
+                log.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+        epgzip(epginfo)
 
 
 def GetEPGFromSK(ChannelInfos):
