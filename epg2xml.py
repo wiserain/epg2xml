@@ -133,7 +133,7 @@ def getEpg():
     GetEPGFromNaver([info for info in ChannelInfos if info[2] == 'NAVER'])
 
     # 여기서부터는 기존의 채널 필터(My Channel)를 사용하지 않음
-    GetEPGFromWAVVE([c for c in Channeldatajson if c['Source'] == 'POOQ' or c['Source'] == 'WAVVE'])
+    GetEPGFromWAVVE([c for c in Channeldatajson if c['Source'] == 'WAVVE'])
 
     print('</tv>')
     log.info('종료합니다.')
@@ -510,112 +510,111 @@ def GetEPGFromWAVVE(reqChannels):
         'enddatetime': (today + timedelta(days=period-1)).strftime('%Y-%m-%d') + ' 24:00',
     })
 
+    channellist = request_data(url, params, method='GET', output='json', session=sess)['list']
+    channeldict = {x['channelid']: x for x in channellist}
+
+    # dump all available channels to json
+    all_channels = [{
+        'WAVVE Name': x['channelname'],
+        'Icon_url': 'https://' + x['channelimage'],
+        'Source': 'WAVVE',
+        'ServiceId': x['channelid']
+    } for x in channellist]
+    dump_channels('WAVVE', all_channels)
+
+    # remove unavailable channels in advance
+    all_services = [x['channelid'] for x in channellist]
+    tmpChannels = []
+    for reqChannel in reqChannels:
+        if reqChannel['ServiceId'] in all_services:
+            tmpChannels.append(reqChannel)
+        else:
+            log.warning('없는 서비스 아이디입니다: %s', reqChannel)
+
+    # reqChannels = all_channels  # request all channels
+    reqChannels = tmpChannels
+
+    # for caching program details
+    programcache = {}
+
     try:
-        response = sess.get(url, params=params, timeout=req_timeout)
-        response.raise_for_status()
-        channellist = response.json()['list']
-        channeldict = {x['channelid']: x for x in channellist}
-
-        # dump all available channels to json
-        json_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_WAVVE.json')
-        all_channels = [{'WAVVE Name': x['channelname'], 'Icon_url': 'https://' + x['channelimage'], 'Source': 'WAVVE',
-                         'ServiceId': x['channelid']} for x in channellist]
-        notice = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(all_channels)}]
-        dump_json(json_fname, notice + all_channels)
-
-        # remove unavailable channels in advance
-        all_services = [x['channelid'] for x in channellist]
-        tmpChannels = []
         for reqChannel in reqChannels:
-            if reqChannel['ServiceId'] in all_services:
-                tmpChannels.append(reqChannel)
-            else:
-                log.warning('없는 서비스 아이디입니다: %s', reqChannel)
-
-        # reqChannels = all_channels  # request all channels
-        reqChannels = tmpChannels
-
-        # for caching program details
-        programcache = {}
-
-        for reqChannel in reqChannels:
-            if 'ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict:
-                # 채널이름은 그대로 들어오고 프로그램 제목은 escape되어 들어옴
-                srcChannel = channeldict[reqChannel['ServiceId']]
-                channelid = reqChannel['Id'] if 'Id' in reqChannel else 'pooq|%s' % srcChannel['channelid']
-                channelname = reqChannel['Name'] if 'Name' in reqChannel else srcChannel['channelname'].strip()
-                channelicon = reqChannel['Icon_url'] if 'Icon_url' in reqChannel else 'https://' + srcChannel['channelimage']
-                # channelliveimg = "https://wchimg.pooq.co.kr/pooqlive/thumbnail/%s.jpg" % reqChannel['ServiceId']
-                print('  <channel id="%s">' % channelid)
-                print('    <icon src="%s" />' % escape(channelicon))
-                print('    <display-name>%s</display-name>' % escape(channelname))
-                print('  </channel>')
-
-                for program in srcChannel['list']:
-                    startTime = endTime = programName = subprogramName = desc = ''
-                    actors = producers = category = episode = iconurl = ''
-                    rebroadcast = False
-                    startTime = datetime.strptime(program['starttime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
-                    endTime = datetime.strptime(program['endtime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
-
-                    # TODO: 제목 너무 지저분/부실하네
-                    # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
-                    programName = unescape(program['title'])
-                    pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
-                    matches = re.match(pattern, programName)
-                    if matches:
-                        programName = matches.group(1).strip() if matches.group(1) else ''
-                        subprogramName = matches.group(3).strip() if matches.group(3) else ''
-                        episode = matches.group(2).replace('회', '') if matches.group(2) else ''
-                        episode = '' if episode == '0' else episode
-                        rebroadcast = True if matches.group(5) else False
-
-                    rating = 0 if program['targetage'] == 'n' else int(program['targetage'])
-
-                    # 추가 정보 가져오기
-                    programid = program['programid'].strip()
-                    if programid and (programid not in programcache):
-                        # 개별 programid가 없는 경우도 있으니 체크해야함
-                        programdetail = getWAVVEProgramDetails(programid, sess)
-                        if programdetail is not None:
-                            programdetail[u'hit'] = 0  # to know cache hit rate
-                        programcache[programid] = programdetail
-
-                    if (programid in programcache) and bool(programcache[programid]):
-                        programcache[programid][u'hit'] += 1
-                        programdetail = programcache[programid]
-                        # TODO: 추가 제목 정보 활용
-                        # programtitle = programdetail['programtitle']
-                        # log.info('%s / %s' % (programName, programtitle))
-                        desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
-                        category = programdetail['genretext'].strip()
-                        iconurl = 'https://' + programdetail['programposterimage'].strip()
-                        # tags = programdetail['tags']['list'][0]['text']
-                        if programdetail['actors']['list']:
-                            actors = ','.join([x['text'] for x in programdetail['actors']['list']])
-
-                    writeProgram({
-                        'channelId': channelid,
-                        'startTime': startTime,
-                        'endTime': endTime,
-                        'programName': programName,
-                        'subprogramName': subprogramName,
-                        'desc': desc,
-                        'actors': actors,
-                        'producers': producers,
-                        'category': category,
-                        'episode': episode,
-                        'rebroadcast': rebroadcast,
-                        'rating': rating,
-                        'iconurl': iconurl
-                    })
-            else:
+            if not ('ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict):
                 log.warning('EPG 정보가 없거나 없는 채널입니다: %s' % reqChannel)
+                continue
+
+            # 채널이름은 그대로 들어오고 프로그램 제목은 escape되어 들어옴
+            srcChannel = channeldict[reqChannel['ServiceId']]
+            channelid = reqChannel['Id'] if 'Id' in reqChannel else 'wavve|%s' % srcChannel['channelid']
+            channelname = reqChannel['Name'] if 'Name' in reqChannel else srcChannel['channelname'].strip()
+            channelicon = reqChannel['Icon_url'] if 'Icon_url' in reqChannel else 'https://' + srcChannel['channelimage']
+            # channelliveimg = "https://wchimg.pooq.co.kr/pooqlive/thumbnail/%s.jpg" % reqChannel['ServiceId']
+            print('  <channel id="%s">' % channelid)
+            print('    <icon src="%s" />' % escape(channelicon))
+            print('    <display-name>%s</display-name>' % escape(channelname))
+            print('  </channel>')
+
+            for program in srcChannel['list']:
+                startTime = datetime.strptime(program['starttime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+                endTime = datetime.strptime(program['endtime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+
+                # TODO: 제목 너무 지저분/부실하네
+                # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
+                programName = unescape(program['title'])
+                pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
+                matches = re.match(pattern, programName)
+                if matches:
+                    programName = matches.group(1).strip() if matches.group(1) else ''
+                    subprogramName = matches.group(3).strip() if matches.group(3) else ''
+                    episode = matches.group(2).replace('회', '') if matches.group(2) else ''
+                    episode = '' if episode == '0' else episode
+                    rebroadcast = True if matches.group(5) else False
+                else:
+                    subprogramName, episode, rebroadcast = '', '', False
+
+                rating = 0 if program['targetage'] == 'n' else int(program['targetage'])
+
+                # 추가 정보 가져오기
+                desc, category, iconurl, actors, producers = '', '', '', '', ''
+                programid = program['programid'].strip()
+                if programid and (programid not in programcache):
+                    # 개별 programid가 없는 경우도 있으니 체크해야함
+                    programdetail = getWAVVEProgramDetails(programid, sess)
+                    if programdetail is not None:
+                        programdetail[u'hit'] = 0  # to know cache hit rate
+                    programcache[programid] = programdetail
+
+                if (programid in programcache) and bool(programcache[programid]):
+                    programcache[programid][u'hit'] += 1
+                    programdetail = programcache[programid]
+                    # TODO: 추가 제목 정보 활용
+                    # programtitle = programdetail['programtitle']
+                    # log.info('%s / %s' % (programName, programtitle))
+                    desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
+                    category = programdetail['genretext'].strip()
+                    iconurl = 'https://' + programdetail['programposterimage'].strip()
+                    # tags = programdetail['tags']['list'][0]['text']
+                    if programdetail['actors']['list']:
+                        actors = ','.join([x['text'] for x in programdetail['actors']['list']])
+
+                writeProgram({
+                    'channelId': channelid,
+                    'startTime': startTime,
+                    'endTime': endTime,
+                    'programName': programName,
+                    'subprogramName': subprogramName,
+                    'desc': desc,
+                    'actors': actors,
+                    'producers': producers,
+                    'category': category,
+                    'episode': episode,
+                    'rebroadcast': rebroadcast,
+                    'rating': rating,
+                    'iconurl': iconurl
+                })
         log.info('WAVVE EPG 완료: {}개 채널'.format(len(reqChannels)))
-    except requests.exceptions.RequestException as e:
-        log.error('요청 중 에러: %s' % str(e))
     except Exception as e:
-        log.error('알 수 없는 에러: %s' % str(e))
+        log.error(str(e))
 
 
 def getWAVVEProgramDetails(programid, sess):
@@ -635,22 +634,13 @@ def getWAVVEProgramDetails(programid, sess):
 
     ret = None
     try:
-        res = sess.get(url, params=param, timeout=req_timeout)
-        res.raise_for_status()
-        contentid = res.json()['contentid'].strip()
-
-        time.sleep(req_sleep)       # request sleep
+        contentid = request_data(url, param, method='GET', output='json', session=sess)['contentid'].strip()
 
         # url2 = 'https://apis.pooq.co.kr/cf/vod/contents/' + contentid
         url2 = 'https://apis.pooq.co.kr/vod/contents/' + contentid    # 같은 주소지만 이게 더 안정적인듯
-        res2 = sess.get(url2, params=param, timeout=req_timeout)
-        res2.raise_for_status()
-        ret = res2.json()
-    except requests.exceptions.RequestException as e:
-        log.error('요청 중 에러: %s' % str(e))
+        ret = request_data(url2, param, method='GET', output='json', session=sess)
     except Exception as e:
-        log.error('알 수 없는 에러: %s' % str(e))
-    time.sleep(req_sleep)  # request sleep
+        log.error(str(e))
     return ret
 
 
