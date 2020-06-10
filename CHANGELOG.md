@@ -1,3 +1,8 @@
+### Version 1.4.0
+  - requests 함수화
+  - LG 정규식 개선
+  - WAVVE에서 pooq 혼용을 제거
+  - TVING 추가 (베타)
 ### Version 1.3.0
   - 수정: request timeout 5 → 15초
   - 추가: CLI에서 logfile, configfile, channelfile 경로, loglevel 지정 가능
