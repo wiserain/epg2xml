@@ -269,28 +269,31 @@ def GetEPGFromSK(ChannelInfos):
     def request_json(form_data):
         ret = []
         try:
-            response = sess.post(url, data=form_data, timeout=req_timeout)
-            response.raise_for_status()
-            data = response.json()
+            data = request_data(url, form_data, method='POST', output='json', session=sess)
             if data['result'].lower() == 'ok':
                 ret = data['ServiceInfoArray']
             else:
-                log.error('유효한 응답이 아닙니다: %s' % data['reason'])
-        except ValueError as e:
+                raise ValueError('유효한 응답이 아닙니다: %s' % data['reason'])
+        except Exception as e:
             log.error(str(e))
-        except requests.exceptions.RequestException as e:
-            log.error('요청 중 에러: %s' % str(e))
         return ret
 
     # dump all available channels to json
-    json_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_SK.json')
-    json_rawdata = request_json({'variable': 'IF_LIVECHART_ALL'})
-    all_channels = [{'SK Name': x['NM_CH'], 'SKCh': int(x['NO_CH']), 'Icon_url': icon_url.format(x['ID_SVC']), 'Source': 'SK', 'ServiceId': x['ID_SVC']} for x in json_rawdata]
-    notice = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(all_channels)}]
-    dump_json(json_fname, notice + all_channels)
+    try:
+        all_channels = [{
+            'SK Name': x['NM_CH'],
+            'SKCh': int(x['NO_CH']),
+            'Icon_url': icon_url.format(x['ID_SVC']),
+            'Source': 'SK',
+            'ServiceId': x['ID_SVC']
+        } for x in request_json({'variable': 'IF_LIVECHART_ALL'})]
+        dump_channels('SK', all_channels)
+        all_services = [x['ServiceId'] for x in all_channels]
+    except Exception as e:
+        log.error('체널 목록을 가져오지 못했습니다: %s', str(e))
+        all_services = [x[3] for x in ChannelInfos]
 
     # remove unavailable channels in advance
-    all_services = [x['ID_SVC'] for x in json_rawdata]
     newChannelInfos = []
     for ChannelInfo in ChannelInfos:
         ServiceId = ChannelInfo[3]
@@ -309,7 +312,6 @@ def GetEPGFromSK(ChannelInfos):
         day = today + timedelta(days=k)
         params.update({'o_date': day.strftime('%Y%m%d')})
         channels = {x['ID_SVC']: x['EventInfoArray'] for x in request_json(params)}
-        time.sleep(req_sleep)       # request sleep
 
         for ChannelInfo in newChannelInfos:
             ServiceId = ChannelInfo[3]
@@ -822,7 +824,6 @@ def writeSKPrograms(ChannelInfo, programs):
         '18': '뉴스',
     }
     for program in programs:
-        startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
         rebroadcast = False
         programName = program['NM_TITLE'].replace('...', '>')
         pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
@@ -840,12 +841,14 @@ def writeSKPrograms(ChannelInfo, programs):
             info_array = program['AdditionalInfoArray'][0]
             actors = info_array['NM_ACT'].replace('...', '').strip(', ') if info_array['NM_ACT'] else ''
             producers = info_array['NM_DIRECTOR'].replace('...', '').strip(', ') if info_array['NM_DIRECTOR'] else ''
+        else:
+            actors, producers = '', ''
         if program['CD_GENRE'] and (program['CD_GENRE'] in genre_code):
             category = genre_code[program['CD_GENRE']]
         else:
             category = ''
         rating = int(program['CD_RATING']) if program['CD_RATING'] else 0
-        programdata = {
+        writeProgram({
             'channelId': ChannelInfo[0],
             'startTime': startTime,
             'endTime': endTime,
@@ -858,8 +861,7 @@ def writeSKPrograms(ChannelInfo, programs):
             'episode': episode,
             'rebroadcast': rebroadcast,
             'rating': rating
-        }
-        writeProgram(programdata)
+        })
 
 
 def load_json(file_path):
