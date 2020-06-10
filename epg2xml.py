@@ -134,6 +134,7 @@ def getEpg():
 
     # 여기서부터는 기존의 채널 필터(My Channel)를 사용하지 않음
     GetEPGFromWAVVE([c for c in Channeldatajson if c['Source'] == 'WAVVE'])
+    GetEPGFromTVING([c for c in Channeldatajson if c['Source'] == 'TVING'])
 
     print('</tv>')
     log.info('종료합니다.')
@@ -642,6 +643,179 @@ def getWAVVEProgramDetails(programid, sess):
     except Exception as e:
         log.error(str(e))
     return ret
+
+
+def GetEPGFromTVING(reqChannels):
+    if reqChannels:
+        log.info('소스가 TVING인 채널을 가져오고 있습니다.')
+    else:
+        return
+
+    url = 'https://api.tving.com/v2/media/schedules'
+    referer = 'https://www.tving.com/schedule/main.do'
+    params = {
+        "pageNo": "1",
+        "pageSize": "20",   # maximum 20
+        "order": "chno",
+        "scope": "all",
+        "adult": "all",
+        "free": "all",
+        "broadDate": "20200608",
+        "broadcastDate": "20200608",
+        "startBroadTime": "030000",  # 최대 3시간 간격
+        "endBroadTime": "060000",
+        # "channelCode": "C06941,C07381,...",
+        "screenCode": "CSSD0100",
+        "networkCode": "CSND0900",
+        "osCode": "CSOD0900",
+        "teleCode": "CSCD0900",
+        "apiKey": "1e7952d0917d6aab1f0293a063697610",
+    }
+
+    sess = requests.session()
+    sess.headers.update({'User-Agent': ua, 'Referer': referer})
+
+    def get_json(_params):
+        _page = 1
+        _results = []
+        while True:
+            _params.update({'pageNo': str(_page)})
+            _data = request_data(url, _params, method='GET', output='json', session=sess)
+            if _data['header']['status'] != 200:
+                raise requests.exceptions.RequestException
+            else:
+                _results.extend(_data['body']['result'])
+            if _data['body']['has_more'] == 'Y':
+                _page += 1
+            else:
+                return _results
+
+    def get_imgurl(_item):
+        priority_img_code = ['CAIC1600', 'CAIC0100', 'CAIC0400']
+        for img_code in priority_img_code:
+            img_list = [x for x in _item['image'] if x['code'] == img_code]
+            if img_list:
+                return 'https://image.tving.com' + (img_list[0]['url'] if 'url' in img_list[0] else img_list[0]['url2'])
+
+    gcode = {
+        'CPTG0100': 0,
+        'CPTG0200': 7,
+        'CPTG0300': 12,
+        'CPTG0400': 15,
+        'CPTG0500': 19,
+        'CMMG0100': 0,
+        'CMMG0200': 12,
+        'CMMG0300': 15,
+        'CMMG0400': 19,
+    }
+
+    # update parameters for requests
+    params.update({
+        'broadDate': today.strftime('%Y%m%d'),
+        'broadcastDate': today.strftime('%Y%m%d'),
+        "startBroadTime": datetime.now().strftime('%H') + "0000",
+        "endBroadTime": (datetime.now() + timedelta(hours=3)).strftime('%H') + "0000",
+    })
+
+    channellist = get_json(params)
+    all_channels = [{
+        'TVING Name': x['channel_name']['ko'],
+        'Icon_url': get_imgurl(x),
+        'Source': 'TVING',
+        'ServiceId': x['channel_code']
+    } for x in channellist if x['schedules'] is not None]
+    dump_channels('TVING', all_channels)
+
+    # remove unavailable channels in advance
+    all_services = [x['channel_code'] for x in channellist]
+    tmpChannels = []
+    for reqChannel in reqChannels:
+        if reqChannel['ServiceId'] in all_services:
+            tmpChannels.append(reqChannel)
+        else:
+            log.warning('없는 서비스 아이디입니다: %s', reqChannel)
+
+    # reqChannels = all_channels  # request all channels
+    reqChannels = tmpChannels
+
+    params.update({"channelCode": ','.join([x['ServiceId'].strip() for x in reqChannels])})
+
+    channeldict = {}
+    for k in range(period):
+        day = today + timedelta(days=k)
+        params.update({'broadDate': day.strftime('%Y%m%d'), 'broadcastDate': day.strftime('%Y%m%d')})
+        for t in range(8):
+            params.update({
+                "startBroadTime": '{:02d}'.format(t*3) + "0000",
+                "endBroadTime": '{:02d}'.format(t*3+3) + "0000",
+            })
+            for ch in get_json(params):
+                if ch['channel_code'] in channeldict:
+                    if ch['schedules']:
+                        channeldict[ch['channel_code']]['schedules'] += ch['schedules']
+                else:
+                    channeldict[ch['channel_code']] = ch
+
+    for reqChannel in reqChannels:
+        if not ('ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict):
+            log.warning('EPG 정보가 없거나 없는 채널입니다: %s' % reqChannel)
+            continue
+        srcChannel = channeldict[reqChannel['ServiceId']]
+        channelid = reqChannel['Id'] if 'Id' in reqChannel else 'tving|%s' % srcChannel['channel_code']
+        channelname = reqChannel['Name'] if 'Name' in reqChannel else srcChannel['channel_name']['ko'].strip()
+        channelicon = reqChannel['Icon_url'] if 'Icon_url' in reqChannel else get_imgurl(srcChannel)
+        print('  <channel id="%s">' % channelid)
+        print('    <icon src="%s" />' % escape(channelicon))
+        print('    <display-name>%s</display-name>' % escape(channelname))
+        print('  </channel>')
+
+        for sch in srcChannel['schedules']:
+            # 공통
+            startTime = str(sch['broadcast_start_time'])
+            endTime = str(sch['broadcast_end_time'])
+            rebroadcast = True if sch['rerun_yn'] == 'Y' else False
+
+            get_from = 'movie' if sch['movie'] else 'program'
+            img_code = 'CAIM2100' if sch['movie'] else 'CAIP0900'
+
+            rating = gcode[sch[get_from]['grade_code']]
+
+            programName = sch[get_from]['name']['ko']
+            subprogramName = sch[get_from]['name']['en'] if sch[get_from]['name']['en'] else ''
+
+            category = sch[get_from]['category1_name']['ko']
+            actors = ','.join(sch[get_from]['actor'])
+            producers = ','.join(sch[get_from]['director'])
+
+            iconurl = ''
+            poster = [x['url'] for x in sch[get_from]['image'] if x['code'] == img_code]
+            if poster:
+                iconurl = 'https://image.tving.com' + poster[0]
+                # iconurl += '/dims/resize/236'
+
+            episode = ''
+            desc = sch[get_from]['story' if sch['movie'] else 'synopsis']['ko']
+            if sch['episode']:
+                episode = sch['episode']['frequency']
+                episode = '' if episode == 0 else str(episode)
+                desc = sch['episode']['synopsis']['ko']
+
+            writeProgram({
+                'channelId': channelid,
+                'startTime': startTime,
+                'endTime': endTime,
+                'programName': programName,
+                'subprogramName': subprogramName,
+                'desc': desc,
+                'actors': actors,
+                'producers': producers,
+                'category': category,
+                'episode': episode,
+                'rebroadcast': rebroadcast,
+                'rating': rating,
+                'iconurl': iconurl
+            })
+    log.info('TVING EPG 완료: {}개 채널'.format(len(reqChannels)))
 
 
 def epgzip(epginfo):
