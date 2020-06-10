@@ -432,7 +432,6 @@ def GetEPGFromNaver(ChannelInfos):
     url = 'https://m.search.naver.com/p/csearch/content/nqapirender.nhn'
     referer = 'https://m.search.naver.com/search.naver?where=m&query=%ED%8E%B8%EC%84%B1%ED%91%9C'
     params = {
-        'callback': 'epg',
         'key': 'SingleChannelDailySchedule',
         'where': 'm',
         'pkid': '66',
@@ -448,48 +447,28 @@ def GetEPGFromNaver(ChannelInfos):
         for k in range(period):
             day = today + timedelta(days=k)
             params.update({'u1': ChannelInfo[3], 'u2': day.strftime('%Y%m%d')})
+            data = request_data(url, params, method='GET', output='json', session=sess)
             try:
-                response = sess.get(url, params=params, timeout=req_timeout)
-                response.raise_for_status()
-                json_data = re.sub(re.compile("/\*.*?\*/", re.DOTALL), "", response.text.split("epg(")[1].strip(");").strip())
-                try:
-                    data = json.loads(json_data, encoding='utf-8')
-                    if data['statusCode'].lower() != 'success':
-                        log.error('유효한 응답이 아닙니다: %s %s' % (ChannelInfo, data['statusCode']))
-                        break
+                if data['statusCode'].lower() != 'success':
+                    log.error('유효한 응답이 아닙니다: %s %s' % (ChannelInfo, data['statusCode']))
+                    continue
 
-                    for ul in data['dataHtml']:
-                        strainer = SoupStrainer('ul', {'class': 'ind_list'})
-                        soup = BeautifulSoup(ul, htmlparser, parse_only=strainer)
-                        html = soup.find_all('li', {'class': 'list'}) if soup.find('ul', {'class': 'ind_list'}) else ''
-                        if html:
-                            for row in html:
-                                for cell in [row.find_all('div')]:
-                                    startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
-                                    rating = 0
-                                    programName = unescape(cell[4].text.strip())
-                                    startTime = str(day) + ' ' + cell[1].text.strip()
-                                    startTime = datetime.strptime(startTime, '%Y-%m-%d %H:%M')
-                                    startTime = startTime.strftime('%Y%m%d%H%M%S')
-                                    rebroadcast = True if cell[3].find('span', {'class': 're'}) else False
-                                    try:
-                                        subprogramName = cell[5].text.strip()
-                                    except:
-                                        subprogramName = ''
-                                    epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating])
-                        else:
-                            log.warning('EPG 정보가 없거나 없는 채널입니다: %s %s' % (day.strftime('%Y%m%d'), ChannelInfo))
-
-                except ValueError as e:
-                    log.error(str(e))
-            except requests.RequestException as e:
-                log.error('요청 중 에러: %s: %s' % (ChannelInfo, str(e)))
-
-            # req_sleep
-            time.sleep(req_sleep)
-
-        if epginfo:
-            epgzip(epginfo)
+                soup = BeautifulSoup(''.join(data['dataHtml']), htmlparser)
+                for row in soup.find_all('li', {'class': 'list'}):
+                    cell = row.find_all('div')
+                    rating = 0
+                    programName = unescape(cell[4].text.strip())
+                    startTime = str(day) + ' ' + cell[1].text.strip()
+                    startTime = datetime.strptime(startTime, '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+                    rebroadcast = True if cell[3].find('span', {'class': 're'}) else False
+                    try:
+                        subprogramName = cell[5].text.strip()
+                    except:
+                        subprogramName = ''
+                    epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, '', '', '', '', '', rebroadcast, rating])
+            except Exception as e:
+                log.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+        epgzip(epginfo)
 
 
 def GetEPGFromWAVVE(reqChannels):
