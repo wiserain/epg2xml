@@ -346,15 +346,32 @@ def GetEPGFromSKB(ChannelInfos):
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
+    # dump all available channels to json
+    try:
+        url_ch = 'https://m.skbroadband.com/content/realtime/Realtime_List_Ajax.do'
+        params_ch = {"package_name": "PM50305785", "pack": "18"}
+        all_channels = [{
+            'SKB Name': x['m_name'],
+            'SKBCh': int(x['ch_no']),
+            'Source': 'SKB',
+            'ServiceId': x['c_menu'],
+        } for x in request_data(url_ch, params_ch, method='POST', output='json', session=sess) if x['depth'] == '2']
+        dump_channels('SKB', all_channels)
+        all_services = [x['ServiceId'] for x in all_channels]
+    except Exception as e:
+        log.error('체널 목록을 가져오지 못했습니다: %s', str(e))
+        all_services = [x[3] for x in ChannelInfos]
+
     for ChannelInfo in ChannelInfos:
+        if ChannelInfo[3] not in all_services:
+            log.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
+            continue
         epginfo = []
         for k in range(period):
             day = today + timedelta(days=k)
             params.update({'key_depth2': ChannelInfo[3], 'key_depth3': day.strftime('%Y%m%d')})
+            data = request_data(url, params, method='GET', output='html', session=sess)
             try:
-                response = sess.get(url, params=params, timeout=req_timeout)
-                response.raise_for_status()
-                data = response.text
                 data = re.sub('EUC-KR', 'utf-8', data)
                 data = re.sub('<!--(.*?)-->', '', data, 0, re.I | re.S)
                 data = re.sub('<span class="round_flag flag02">(.*?)</span>', '', data)
@@ -372,7 +389,7 @@ def GetEPGFromSKB(ChannelInfos):
                 html = soup.find_all('li', {'class': 'list'}) if soup.find_all('li') else ''
                 if html:
                     for row in html:
-                        startTime = endTime = programName = subprogramName = desc = actors = producers = category = episode = ''
+                        startTime = endTime = programName = subprogramName = episode = ''
                         rebroadcast = False
                         rating = 0
                         startTime = str(day) + ' ' + row.find('p', {'class': 'time'}).text
@@ -396,19 +413,13 @@ def GetEPGFromSKB(ChannelInfos):
                                 rebroadcast = True if matches.group(7) else False
                                 episode = matches.group(3) if matches.group(3) else ''
 
-                        # ChannelId, startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating
-                        epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, desc, actors, producers, category, episode, rebroadcast, rating])
+                        epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, '', '', '', '', episode, rebroadcast, rating])
                 else:
                     log.warning('EPG 정보가 없거나 없는 채널입니다: %s' % ChannelInfo)
                     # 오늘 없으면 내일도 없는 채널로 간주
                     break
-            except requests.exceptions.RequestException as e:
-                log.error('요청 중 에러: %s: %s' % (ChannelInfo, str(e)))
-
-            # req_sleep
-            time.sleep(req_sleep)
-
-        if epginfo:
+            except Exception as e:
+                log.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
             epgzip(epginfo)
 
 
