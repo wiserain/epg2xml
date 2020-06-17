@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape, unescape
 #
 # default variables
 #
-__version__ = '1.4.0'
+__version__ = '1.4.1'
 today = date.today()
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
 req_timeout = 15
@@ -556,63 +556,68 @@ def GetEPGFromWAVVE(reqChannels):
             print('  </channel>')
 
             for program in srcChannel['list']:
-                startTime = datetime.strptime(program['starttime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
-                endTime = datetime.strptime(program['endtime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+                try:
+                    log.debug('{}/{}'.format(channelname, program['title']))
+                    startTime = datetime.strptime(program['starttime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
+                    endTime = datetime.strptime(program['endtime'], '%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M%S')
 
-                # TODO: 제목 너무 지저분/부실하네
-                # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
-                programName = unescape(program['title'])
-                pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
-                matches = re.match(pattern, programName)
-                if matches:
-                    programName = matches.group(1).strip() if matches.group(1) else ''
-                    subprogramName = matches.group(3).strip() if matches.group(3) else ''
-                    episode = matches.group(2).replace('회', '') if matches.group(2) else ''
-                    episode = '' if episode == '0' else episode
-                    rebroadcast = True if matches.group(5) else False
-                else:
-                    subprogramName, episode, rebroadcast = '', '', False
+                    # TODO: 제목 너무 지저분/부실하네
+                    # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
+                    programName = unescape(program['title'])
+                    pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
+                    matches = re.match(pattern, programName)
+                    if matches:
+                        programName = matches.group(1).strip() if matches.group(1) else ''
+                        subprogramName = matches.group(3).strip() if matches.group(3) else ''
+                        episode = matches.group(2).replace('회', '') if matches.group(2) else ''
+                        episode = '' if episode == '0' else episode
+                        rebroadcast = True if matches.group(5) else False
+                    else:
+                        subprogramName, episode, rebroadcast = '', '', False
 
-                rating = 0 if program['targetage'] == 'n' else int(program['targetage'])
+                    rating = 0 if program['targetage'] == 'n' else int(program['targetage'])
 
-                # 추가 정보 가져오기
-                desc, category, iconurl, actors, producers = '', '', '', '', ''
-                programid = program['programid'].strip()
-                if programid and (programid not in programcache):
-                    # 개별 programid가 없는 경우도 있으니 체크해야함
-                    programdetail = getWAVVEProgramDetails(programid, sess)
-                    if programdetail is not None:
-                        programdetail[u'hit'] = 0  # to know cache hit rate
-                    programcache[programid] = programdetail
+                    # 추가 정보 가져오기
+                    desc, category, iconurl, actors, producers = '', '', '', '', ''
+                    programid = program['programid'].strip()
+                    if programid and (programid not in programcache):
+                        # 개별 programid가 없는 경우도 있으니 체크해야함
+                        programdetail = getWAVVEProgramDetails(programid, sess)
+                        if programdetail is not None:
+                            programdetail[u'hit'] = 0  # to know cache hit rate
+                        programcache[programid] = programdetail
 
-                if (programid in programcache) and bool(programcache[programid]):
-                    programcache[programid][u'hit'] += 1
-                    programdetail = programcache[programid]
-                    # TODO: 추가 제목 정보 활용
-                    # programtitle = programdetail['programtitle']
-                    # log.info('%s / %s' % (programName, programtitle))
-                    desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
-                    category = programdetail['genretext'].strip()
-                    iconurl = 'https://' + programdetail['programposterimage'].strip()
-                    # tags = programdetail['tags']['list'][0]['text']
-                    if programdetail['actors']['list']:
-                        actors = ','.join([x['text'] for x in programdetail['actors']['list']])
+                    if (programid in programcache) and bool(programcache[programid]):
+                        programcache[programid][u'hit'] += 1
+                        programdetail = programcache[programid]
+                        # TODO: 추가 제목 정보 활용
+                        # programtitle = programdetail['programtitle']
+                        # log.info('%s / %s' % (programName, programtitle))
+                        desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
+                        category = programdetail['genretext'].strip()
+                        iconurl = 'https://' + programdetail['programposterimage'].strip()
+                        # tags = programdetail['tags']['list'][0]['text']
+                        if programdetail['actors']['list']:
+                            actors = ','.join([x['text'] for x in programdetail['actors']['list']])
 
-                writeProgram({
-                    'channelId': channelid,
-                    'startTime': startTime,
-                    'endTime': endTime,
-                    'programName': programName,
-                    'subprogramName': subprogramName,
-                    'desc': desc,
-                    'actors': actors,
-                    'producers': producers,
-                    'category': category,
-                    'episode': episode,
-                    'rebroadcast': rebroadcast,
-                    'rating': rating,
-                    'iconurl': iconurl
-                })
+                    writeProgram({
+                        'channelId': channelid,
+                        'startTime': startTime,
+                        'endTime': endTime,
+                        'programName': programName,
+                        'subprogramName': subprogramName,
+                        'desc': desc,
+                        'actors': actors,
+                        'producers': producers,
+                        'category': category,
+                        'episode': episode,
+                        'rebroadcast': rebroadcast,
+                        'rating': rating,
+                        'iconurl': iconurl
+                    })
+                except Exception as e:
+                    log.error('파싱 에러: %s' % str(e))
+                    log.error(program)
         log.info('WAVVE EPG 완료: {}개 채널'.format(len(reqChannels)))
     except Exception as e:
         log.error(str(e))
