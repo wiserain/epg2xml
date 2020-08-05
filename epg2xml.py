@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape as _escape, unescape
 #
 # default variables
 #
-__version__ = '1.4.2'
+__version__ = '1.4.3'
 today = date.today()
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
 req_timeout = 15
@@ -489,7 +489,7 @@ def GetEPGFromWAVVE(reqChannels):
     params = {
         'enddatetime': '2020-01-20 24:00',
         'genre': 'all',
-        'limit': 100,
+        'limit': 200,
         'offset': 0,
         'startdatetime': '2020-01-20 21:00',
         'apikey': 'E5F3E0D30947AA5440556471321BB6D9',
