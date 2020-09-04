@@ -569,14 +569,14 @@ def GetEPGFromWAVVE(reqChannels):
                     # TODO: 제목 너무 지저분/부실하네
                     # TODO: python3에서 re.match에 더 많이 잡힘. 왜?
                     programName = unescape(program['title'])
-                    pattern = '^(.*?)(?:\s*[\(<]([\d,회]+)[\)>])?(?:\s*<([^<]*?)>)?(\((재)\))?$'
+                    pattern = '^(.*?)(?:\s*[\(<]?([\d]+)회[\)>]?)?(?:\([월화수목금토일]?\))?(\([선별전주\(\)재방]*?재[\d방]?\))?\s*(?:\[(.+)\])?$'
                     matches = re.match(pattern, programName)
                     if matches:
                         programName = matches.group(1).strip() if matches.group(1) else ''
-                        subprogramName = matches.group(3).strip() if matches.group(3) else ''
+                        subprogramName = matches.group(4).strip() if matches.group(4) else ''
                         episode = matches.group(2).replace('회', '') if matches.group(2) else ''
                         episode = '' if episode == '0' else episode
-                        rebroadcast = True if matches.group(5) else False
+                        rebroadcast = True if matches.group(3) else False
                     else:
                         subprogramName, episode, rebroadcast = '', '', False
 
