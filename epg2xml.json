@@ -25,7 +25,9 @@
     "default_fetch_limit" : "2",
     "###_COMMENT_###" : "### epg 저장시 기본 저장 이름 (ex: /home/tvheadend/xmltv.xml) ###",
     "default_xml_file" : "xmltv.xml",
-    "###_COMMENT_###" : "### # External XMLTV 사용시 기본 소켓 이름 (ex: /home/tvheadend/xmltv.sock) ###",
+    "###_COMMENT_###" : "### External XMLTV 사용시 기본 소켓 이름 (ex: /home/tvheadend/xmltv.sock) ###",
     "default_xml_socket" : "xmltv.sock",
+    "###_COMMENT_###" : "### WAVVE에서 추가 정보를 가져오려면 y (더 많은 요청) ###",
+    "WAVVE_more_details" : "n",
     "###_COMMENT_###" : ""
 }

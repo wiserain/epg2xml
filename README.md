@@ -14,15 +14,17 @@
 |---|---|---|---|---|---|---|
 | KT  | :heavy_check_mark: | :x: | ```#channels * #days```  | :rage::rage::rage: | :smiley::smiley: | 
 | LG  | :x:  | :x:| ```#channels * #days```  | :rage::rage::rage: | :smiley::smiley: |
-| SK  | :heavy_check_mark:  | :x: | ```#channels```  | :rage: | :smiley::smiley::smiley: | :+1::+1::+1: |
+| ~~SK~~<sup id="a1">[1](#f1)</sup>  | :heavy_check_mark:  | :x: | ~~```#days```~~  | ~~:rage:~~ | ~~:smiley::smiley::smiley:~~ | ~~:+1::+1::+1:~~ |
 | SKB  | :heavy_check_mark: | :x:  | ```#channels * #days```  | :rage::rage::rage::rage: | :smiley::smiley: |
 | NAVER  | :x: | :x: | ```#channels * #days``` | :rage::rage::rage: | :smiley: | 
-| WAVVE<sup id="a1">[1](#f1)</sup>  | :heavy_check_mark: | :heavy_check_mark: | ```#programs```  | :rage::rage::rage: | :smiley::smiley: |:+1: |
+| WAVVE  | :heavy_check_mark: | :x:<sup id="a2">[2](#f2)</sup> | ```1```  |  | :smiley::smiley: |:+1: |
 | TVING  | :heavy_check_mark: | :heavy_check_mark: | ```#days * 8```  | :rage::rage: | :smiley::smiley::smiley::smiley: | :+1::+1: |
 
-<b id="f1">1</b> 채널수와 기간에 관계없이 한 번에 가져올 수 있지만 프로그램 포스터와 약간의 추가정보를 얻기 위해 요청이 많아졌다. [↩](#a1)
+<sup><b id="f1">1</b> SK btv 사이트 개편으로 현재 지원되지 않습니다. 다른 소스로 변경하여 사용하세요. [↩](#a1)</sup>
 
-정보가 많고 적은 요청으로 한 번에 가져와서 서버에 부담이 적은 SK를 기본으로 쓰고 부족한 채널은 다른 소스에서 추가해 쓰는 것을 권합니다.
+<sup><b id="f2">2</b> 프로그램 포스터와 함께 추가 정보를 가져오려면 ```epg2xml.json```의 ```WAVVE_more_details``` 항목을 참조. [↩](#a2)</sup>
+
+~~정보가 많고 적은 요청으로 한 번에 가져와서 서버에 부담이 적은 SK를 기본으로 쓰고~~ 부족한 채널은 다른 소스에서 추가해 쓰는 것을 권합니다.
 
 ## 사용법
 
@@ -65,7 +67,7 @@
 ]
 ```
 
-첫번째로 생성일과 전체 채널의 갯수가 명시되고 그 아래로 서비스되는 채널의 정보가 나열됩니다. 참고로 WAVVE는 자주 새로운 채널이 추가되고 있던 채널이 삭제될 뿐만 아니라 가져오는 시간에 따라 api에서 제공여부가 달라져 전체 채널수가 자주 변하는 편입니다. 이 내용은 사용자가 원하는 채널을 Channel.json에 추가하기 쉽게 하기 위한 것이며 실제 적용은 현재 Channel.json에 있는 처럼 직접 입력해주어야 합니다. (화이트리스트 방식) 예를 들어 위 세개의 채널을 추가하고 싶다면 Channel.json에 아래와 같이 추가해주면 됩니다.
+첫번째로 생성일과 전체 채널의 갯수가 명시되고 그 아래로 서비스되는 채널의 정보가 나열됩니다. 참고로 WAVVE는 자주 새로운 채널이 추가되고 있던 채널이 삭제될 뿐만 아니라 가져오는 시간에 따라 api에서 제공여부가 달라져 전체 채널수가 자주 변하는 편입니다. 이 내용은 사용자가 원하는 채널을 Channel.json에 추가하기 쉽게 하기 위한 것이며 실제 적용은 현재 Channel.json와 같이 직접 입력해주어야 합니다. (화이트리스트 방식) 예를 들어 위 세개의 채널을 추가하고 싶다면 Channel.json에 아래와 같이 추가해주면 됩니다.
 
 ```json
 [
@@ -78,7 +80,7 @@
 앞에서 말했듯이 tvheadend에서 인식 가능하게 하는 Id나 Name 필드 그리고 Icon_url은 직접 입력하지 않으면 기본값이 들어갑니다. 
 
 - 파이썬 버전만 WAVVE EPG가 가능합니다. PHP 버전 pull request 환영합니다.
-- Plex 연동시 프로그램 포스터 입력이 됩니다. 그래서 조금 느립니다.
+- ~~Plex 연동시 프로그램 포스터 입력이 됩니다. 그래서 조금 느립니다.~~ 포스터 입력은 ```epg2xml.json```의 ```WAVVE_more_details``` 항목을 참조
 - 너무 자주 요청하지는 마세요. 하루에 1~2번이면 충분하지 않을까 싶습니다.
 
 조금 더 나은 사용을 고민해보겠습니다. 좋은 방안 있으면 issue로 알려주세요.

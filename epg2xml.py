@@ -329,6 +329,7 @@ def GetEPGFromSK(ChannelInfos):
     log.info('SK EPG 완료: {}/{}개 채널'.format(len(newChannelInfos), len(ChannelInfos)))
     """
 
+
 def GetEPGFromSKB(ChannelInfos):
     if ChannelInfos:
         log.info('소스가 SKB인 채널을 가져오고 있습니다.')
@@ -583,26 +584,27 @@ def GetEPGFromWAVVE(reqChannels):
 
                     # 추가 정보 가져오기
                     desc, category, iconurl, actors, producers = '', '', '', '', ''
-                    programid = program['programid'].strip()
-                    if programid and (programid not in programcache):
-                        # 개별 programid가 없는 경우도 있으니 체크해야함
-                        programdetail = getWAVVEProgramDetails(programid, sess)
-                        if programdetail is not None:
-                            programdetail[u'hit'] = 0  # to know cache hit rate
-                        programcache[programid] = programdetail
+                    if wavve_more_details:
+                        programid = program['programid'].strip()
+                        if programid and (programid not in programcache):
+                            # 개별 programid가 없는 경우도 있으니 체크해야함
+                            programdetail = getWAVVEProgramDetails(programid, sess)
+                            if programdetail is not None:
+                                programdetail[u'hit'] = 0  # to know cache hit rate
+                            programcache[programid] = programdetail
 
-                    if (programid in programcache) and bool(programcache[programid]):
-                        programcache[programid][u'hit'] += 1
-                        programdetail = programcache[programid]
-                        # TODO: 추가 제목 정보 활용
-                        # programtitle = programdetail['programtitle']
-                        # log.info('%s / %s' % (programName, programtitle))
-                        desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
-                        category = programdetail['genretext'].strip()
-                        iconurl = 'https://' + programdetail['programposterimage'].strip()
-                        # tags = programdetail['tags']['list'][0]['text']
-                        if programdetail['actors']['list']:
-                            actors = ','.join([x['text'] for x in programdetail['actors']['list']])
+                        if (programid in programcache) and bool(programcache[programid]):
+                            programcache[programid][u'hit'] += 1
+                            programdetail = programcache[programid]
+                            # TODO: 추가 제목 정보 활용
+                            # programtitle = programdetail['programtitle']
+                            # log.info('%s / %s' % (programName, programtitle))
+                            desc = '\n'.join([x.replace('<br>', '\n').strip() for x in programdetail['programsynopsis'].splitlines()])     # carriage return(\r) 제거, <br> 제거
+                            category = programdetail['genretext'].strip()
+                            iconurl = 'https://' + programdetail['programposterimage'].strip()
+                            # tags = programdetail['tags']['list'][0]['text']
+                            if programdetail['actors']['list']:
+                                actors = ','.join([x['text'] for x in programdetail['actors']['list']])
 
                     writeProgram({
                         'channelId': channelid,
@@ -1109,6 +1111,7 @@ conf = {
     'default_episode': 'y',
     'default_verbose': 'n',
     'default_xmltvns': 'n',
+    'WAVVE_more_details': 'n',
 }
 for k in conf:
     if k in args and args[k]:
@@ -1198,5 +1201,11 @@ if not any(conf['default_fetch_limit'] in s for s in '1234567'):
     sys.exit(1)
 else:
     period = int(conf['default_fetch_limit'])
+
+if not any(conf['WAVVE_more_details'] in s for s in 'yn'):
+    log.error("WAVVE_more_details는 y, n만 가능합니다.")
+    sys.exit(1)
+else:
+    wavve_more_details = conf['WAVVE_more_details'] == 'y'
 
 getEpg()
