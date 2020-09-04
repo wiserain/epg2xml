@@ -8,6 +8,7 @@ import json
 import socket
 import logging
 import argparse
+from itertools import islice
 from functools import partial
 from urllib.parse import unquote
 from logging.handlers import RotatingFileHandler
@@ -708,6 +709,13 @@ def GetEPGFromTVING(reqChannels):
             if img_list:
                 return 'https://image.tving.com' + (img_list[0]['url'] if 'url' in img_list[0] else img_list[0]['url2'])
 
+    def grouper(iterable, n):
+        it = iter(iterable)
+        group = tuple(islice(it, n))
+        while group:
+            yield group
+            group = tuple(islice(it, n))
+
     gcode = {
         'CPTG0100': 0,
         'CPTG0200': 7,
@@ -749,23 +757,23 @@ def GetEPGFromTVING(reqChannels):
     # reqChannels = all_channels  # request all channels
     reqChannels = tmpChannels
 
-    params.update({"channelCode": ','.join([x['ServiceId'].strip() for x in reqChannels])})
-
     channeldict = {}
-    for k in range(period):
-        day = today + timedelta(days=k)
-        params.update({'broadDate': day.strftime('%Y%m%d'), 'broadcastDate': day.strftime('%Y%m%d')})
-        for t in range(8):
-            params.update({
-                "startBroadTime": '{:02d}'.format(t*3) + "0000",
-                "endBroadTime": '{:02d}'.format(t*3+3) + "0000",
-            })
-            for ch in get_json(params):
-                if ch['channel_code'] in channeldict:
-                    if ch['schedules']:
-                        channeldict[ch['channel_code']]['schedules'] += ch['schedules']
-                else:
-                    channeldict[ch['channel_code']] = ch
+    for chgroup in grouper([x['ServiceId'].strip() for x in reqChannels], 20):
+        params.update({"channelCode": ','.join(list(chgroup))})
+        for k in range(period):
+            day = today + timedelta(days=k)
+            params.update({'broadDate': day.strftime('%Y%m%d'), 'broadcastDate': day.strftime('%Y%m%d')})
+            for t in range(8):
+                params.update({
+                    "startBroadTime": '{:02d}'.format(t*3) + "0000",
+                    "endBroadTime": '{:02d}'.format(t*3+3) + "0000",
+                })
+                for ch in get_json(params):
+                    if ch['channel_code'] in channeldict:
+                        if ch['schedules']:
+                            channeldict[ch['channel_code']]['schedules'] += ch['schedules']
+                    else:
+                        channeldict[ch['channel_code']] = ch
 
     for reqChannel in reqChannels:
         if not ('ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict):
