@@ -260,19 +260,23 @@ def GetEPGFromSK(ChannelInfos):
     else:
         return
 
-    url = 'http://mapp.btvplus.co.kr/sideMenu/live/IFGetData.do'
-    referer = 'http://mapp.btvplus.co.kr/channelFavor.do'
-    icon_url = 'http://mapp.btvplus.co.kr/data/btvplus/admobd/channelLogo/nsepg_{}.png'
+    for ChannelInfo in ChannelInfos:
+        log.warning('SK 서비스 중지! 다른 소스로 변경해서 사용하세요: %s' % ChannelInfo)
+
+    """
+    url = 'http://mobilebtv.com:8080/api/v3.0/epg'
+    referer = 'http://mobilebtv.com:8080/view/v3.0/epg'
+    icon_url = 'http://mobilebtv.com:8080/static/images/epg/channelLogo/nsepg_{}.png'
 
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
-    def request_json(form_data):
+    def request_json(api_url, form_data):
         ret = []
         try:
-            data = request_data(url, form_data, method='POST', output='json', session=sess)
-            if data['result'].lower() == 'ok':
-                ret = data['ServiceInfoArray']
+            data = request_data(api_url, form_data, method='GET', output='json', session=sess)
+            if data['statusCode'].lower() == 'ok':
+                ret = data['data']['ServiceInfoArray']
             else:
                 raise ValueError('유효한 응답이 아닙니다: %s' % data['reason'])
         except Exception as e:
@@ -287,7 +291,7 @@ def GetEPGFromSK(ChannelInfos):
             'Icon_url': icon_url.format(x['ID_SVC']),
             'Source': 'SK',
             'ServiceId': x['ID_SVC']
-        } for x in request_json({'variable': 'IF_LIVECHART_ALL'})]
+        } for x in request_json(url, {})]
         dump_channels('SK', all_channels)
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
@@ -304,15 +308,15 @@ def GetEPGFromSK(ChannelInfos):
             log.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
 
     params = {
-        'variable': 'IF_LIVECHART_DETAIL',
         'o_date': 'EPGDATE',
-        'svc_ids': '|'.join([info[3].strip() for info in newChannelInfos]),
+        'serviceIds': '|'.join([info[3].strip() for info in newChannelInfos]),
     }
 
     for k in range(period):
         day = today + timedelta(days=k)
+        # 기존에 날짜를 지정해서 가져오는 파라미터가 없어진것 같다. 누가 제보 좀...
         params.update({'o_date': day.strftime('%Y%m%d')})
-        channels = {x['ID_SVC']: x['EventInfoArray'] for x in request_json(params)}
+        channels = {x['ID_SVC']: x['EventInfoArray'] for x in request_json(url + '/details', params)}
 
         for ChannelInfo in newChannelInfos:
             ServiceId = ChannelInfo[3]
@@ -323,7 +327,7 @@ def GetEPGFromSK(ChannelInfos):
                 log.warning('해당 날짜에 EPG 정보가 없거나 없는 채널입니다: %s %s' % (day.strftime('%Y%m%d'), ChannelInfo))
 
     log.info('SK EPG 완료: {}/{}개 채널'.format(len(newChannelInfos), len(ChannelInfos)))
-
+    """
 
 def GetEPGFromSKB(ChannelInfos):
     if ChannelInfos:
