@@ -18,7 +18,7 @@
 | SKB  | :heavy_check_mark: | :x:  | ```#channels * #days```  | :rage::rage::rage::rage: | :smiley::smiley: |
 | NAVER  | :x: | :x: | ```#channels * #days``` | :rage::rage::rage: | :smiley: | 
 | WAVVE  | :heavy_check_mark: | :x:<sup id="a2">[2](#f2)</sup> | ```1```  |  | :smiley::smiley: |:+1: |
-| TVING  | :heavy_check_mark: | :heavy_check_mark: | ```#days * 8```  | :rage::rage: | :smiley::smiley::smiley::smiley: | :+1::+1: |
+| TVING  | :heavy_check_mark: | :heavy_check_mark: | ```#channels/20 * #days * 24/3```  | :rage::rage: | :smiley::smiley::smiley::smiley: | :+1::+1: |
 
 <sup><b id="f1">1</b> SK btv 사이트 개편으로 현재 지원되지 않습니다. 다른 소스로 변경하여 사용하세요. [↩](#a1)</sup>
 
