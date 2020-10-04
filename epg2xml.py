@@ -37,7 +37,7 @@ parser.add_argument('--config', dest='configfile', default=configfile, help='설
 parser.add_argument('--logfile', default=logfile, help='로그 파일 경로 (기본값: %s)' % logfile)
 parser.add_argument('--loglevel', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO', help='로그 레벨 (기본값: INFO)')
 parser.add_argument('--channelfile', default=channelfile, help='채널 파일 경로 (기본값: %s)' % channelfile)
-parser.add_argument('-i', '--isp', dest='MyISP', choices=['ALL', 'KT', 'LG', 'SK'], help='사용하는 ISP 선택')
+parser.add_argument('-i', '--isp', dest='MyISP', choices=['ALL', 'KT', 'LG', 'SK', 'SKB'], help='사용하는 ISP 선택')
 parser.add_argument('-c', '--channelid', dest='MyChannels', metavar='CHANNELID', help='채널 ID를 ,와 -, *를 적절히 조합하여 지정 (예: -3,5,7-9,11-)')
 arg1 = parser.add_mutually_exclusive_group()
 arg1.add_argument('-d', '--display', dest='output', action='store_const', const='d', help='생성된 EPG를 화면에 출력')
@@ -1135,8 +1135,8 @@ for k in conf:
 # validate settings
 #
 MyISP = conf['MyISP']
-if not any(MyISP in s for s in ['ALL', 'KT', 'LG', 'SK']):
-    log.error("MyISP는 ALL, KT, LG, SK만 가능합니다.")
+if not any(MyISP in s for s in ['ALL', 'KT', 'LG', 'SK', 'SKB']):
+    log.error("MyISP는 ALL, KT, LG, SK, SKB만 가능합니다.")
     sys.exit(1)
 
 cids = [x['Id'] for x in Channeldatajson if 'Id' in x]
