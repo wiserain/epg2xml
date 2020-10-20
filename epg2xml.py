@@ -43,7 +43,6 @@ arg1 = parser.add_mutually_exclusive_group()
 arg1.add_argument('-d', '--display', dest='output', action='store_const', const='d', help='생성된 EPG를 화면에 출력')
 arg1.add_argument('-o', '--outfile', dest='default_xml_file', metavar='XMLTVFILE', nargs='?', const='xmltv.xml', help='생성된 EPG를 파일로 저장 (기본경로: %s)' % 'xmltv.xml')
 arg1.add_argument('-s', '--socket', dest='default_xml_socket', metavar='XMLTVSOCK', nargs='?', const='xmltv.sock', help='생성된 EPG를 소켓으로 전송 (기본경로: %s)' % 'xmltv.sock')
-arg1.add_argument('--dump', dest='channel_dump_path', metavar='CHANNEL_DUMP_PATH', nargs='?', const=os.path.join(__dirpath__, 'Channel'), help='채널 덤프를 생성할 경로 (기본경로: %s)' % os.path.join(__dirpath__, 'Channel'))
 args = vars(parser.parse_args())
 if args['default_xml_file']:
     args['output'] = 'o'
@@ -1120,8 +1119,7 @@ conf = {
     'default_episode': 'y',
     'default_verbose': 'n',
     'default_xmltvns': 'n',
-    'WAVVE_more_details': 'n',
-    'channel_dump_path': './Channel'
+    'WAVVE_more_details': 'n'
 }
 for k in conf:
     if k in args and args[k]:
@@ -1218,16 +1216,6 @@ if not any(conf['WAVVE_more_details'] in s for s in 'yn'):
 else:
     wavve_more_details = conf['WAVVE_more_details'] == 'y'
 
-channel_dump_path = conf['channel_dump_path']
-if channel_dump_path:
-    from DumpChannels.FromNaver import DumpChannelsFromNaver
-    from DumpChannels.FromSkb import DumpChannelsFromSkb
-    from DumpChannels.FromTving import DumpChannelsFromTving
-    from DumpChannels.FromWavve import DumpChannelsFromWavve
-    dump_json(os.path.join(channel_dump_path, 'Channel_NAVER.json'), DumpChannelsFromNaver())
-    dump_json(os.path.join(channel_dump_path, 'Channel_SKB.json'), DumpChannelsFromSkb())
-    dump_json(os.path.join(channel_dump_path, 'Channel_TVING.json'), DumpChannelsFromTving())
-    dump_json(os.path.join(channel_dump_path, 'Channel_WAVVE.json'), DumpChannelsFromWavve())
-else:
-    getEpg()
+
+getEpg()
 
