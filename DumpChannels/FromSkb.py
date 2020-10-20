@@ -19,6 +19,9 @@ def DumpChannelsFromSkb():
   ] \n
   @request_count: 1
   """
+
+  print('Skb에서 정보를 가져오고 있습니다 . . .')
+
   URL = "https://m.skbroadband.com/content/realtime/Realtime_List_Ajax.do"
   UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0'
   try:

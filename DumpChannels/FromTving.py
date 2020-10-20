@@ -21,6 +21,8 @@ def DumpChannelsFromTving():
   @request_count: (number of channels) // 20
   """
 
+  print('Tving에서 정보를 가져오고 있습니다 . . .')
+
   URL = "https://api.tving.com/v2/media/schedules"
   UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0'
   params = {

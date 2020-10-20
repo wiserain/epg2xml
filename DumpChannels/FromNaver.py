@@ -20,6 +20,8 @@ def DumpChannelsFromNaver():
   @request_count: 6
   """
 
+  print('Naver에서 정보를 가져오고 있습니다 . . .')
+
   UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0'
   category = [
     {'name': '지상파', 'u1':'100'},
