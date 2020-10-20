@@ -8,6 +8,10 @@ def DumpChannelsFromNaver():
   네이버에서 제공하는 EPG의 채널 목록을 파싱합니다. \n
   @return [ 
     {
+      'last update': 'yyyy/mm/dd hh/mm/ss',
+      'total': '채널갯수'
+    },
+    {
       'NAVER Name': '채널이름',
       'Source': 'NAVER',
       'ServiceId': '서비스ID'

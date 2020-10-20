@@ -8,6 +8,10 @@ def DumpChannelsFromWavve():
   오늘 날짜로 제공되는 EPG만 해당됩니다. \n
   @return [
     {
+      'last update': 'yyyy/mm/dd hh/mm/ss',
+      'total': '채널갯수'
+    },
+    {
       'WAVVE Name': '채널이름',
       'Icon_url': 'https://ddns/path/to/icon',
       'Source': 'WAVVE',
