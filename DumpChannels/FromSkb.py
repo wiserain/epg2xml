@@ -4,7 +4,7 @@ from datetime import datetime
 
 def DumpChannelsFromSkb():
   """
-  SKB에서 제공하는 EPG 목록을 파싱합니다. \n
+  SKB에서 제공하는 EPG의 채널 목록을 파싱합니다. \n
   @return [
     {
       'SKB Name': '채널이름', 
@@ -13,15 +13,15 @@ def DumpChannelsFromSkb():
       'ServiceId': '서비스ID'
     }
   ] \n
-  @request_count 1
+  @request_count: 1
   """
-
+  URL = "https://m.skbroadband.com/content/realtime/Realtime_List_Ajax.do"
   UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0'
   try:
-    req = requests.get("https://m.skbroadband.com/content/realtime/Realtime_List_Ajax.do", headers={'User-Agent': UA})
+    req = requests.get(URL, headers={'User-Agent': UA})
     print('Status Code: ', req.status_code)
   except Exception as e:
-        print('요청 중 에러: %s' % str(e))
+    print('요청 중 에러: %s' % str(e))
 
   channels = json.loads(req.text)
   result = []

@@ -5,7 +5,7 @@ from datetime import datetime
 
 def DumpChannelsFromNaver():
   """
-  네이버에서 제공하는 EPG 목록을 파싱합니다. \n
+  네이버에서 제공하는 EPG의 채널 목록을 파싱합니다. \n
   @return [ 
     {
       'NAVER Name': '채널이름',
@@ -13,7 +13,7 @@ def DumpChannelsFromNaver():
       'ServiceId': '서비스ID'
     }
   ] \n
-  @request_count 6
+  @request_count: 6
   """
 
   UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:81.0) Gecko/20100101 Firefox/81.0'
@@ -38,12 +38,12 @@ def DumpChannelsFromNaver():
     channels = html.select('li.item')
 
     for channel in channels:
-      id = channel.find('div', attrs={'class': "u_likeit_list_module _reactionModule zzim"})['data-cid']
       ch_name = channel.find('div', attrs={'class': "channel_name"}).string
+      ch_id = channel.find('div', attrs={'class': "u_likeit_list_module _reactionModule zzim"})['data-cid']
       result.append({
         'NAVER Name': ch_name,
         'Source': 'NAVER',
-        'ServiceId': id
+        'ServiceId': ch_id
       })
   
   headers = [{'last update':datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total':len(result)}]
