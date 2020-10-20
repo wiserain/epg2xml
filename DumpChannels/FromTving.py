@@ -18,7 +18,7 @@ def DumpChannelsFromTving():
       'ServiceId': '서비스ID'
     }
   ] \n
-  @request_count: #[number of channels]//20
+  @request_count: (number of channels) // 20
   """
 
   URL = "https://api.tving.com/v2/media/schedules"
