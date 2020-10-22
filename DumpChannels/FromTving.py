@@ -8,10 +8,6 @@ def DumpChannelsFromTving():
   현재부터 3시간 지난 시점까지 EPG가 존재하는 채널만 해당됩니다. \n
   @return [
     {
-      'last update': 'yyyy/mm/dd hh/mm/ss',
-      'total': '채널갯수'
-    },
-    {
       'TVING Name': '채널이름', 
       'Icon_url': 'https://ddns/path/to/icon',
       'Source': 'TVING',
@@ -55,7 +51,7 @@ def DumpChannelsFromTving():
     
     res = json.loads(req.text)
     if res['header']['status'] != 200:
-      print('요청 값 에러')
+      print('유효한 응답이 아닙니다.')
       raise requests.exceptions.RequestException
     else:
       channels.extend(res['body']['result'])
@@ -84,7 +80,5 @@ def DumpChannelsFromTving():
       'Source': 'TVING',
       'ServiceId': channel['channel_code']
     })
-  
-  headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(result)}]
 
-  return headers + result
+  return result

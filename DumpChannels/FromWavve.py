@@ -1,16 +1,12 @@
 import json
 import requests
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 
 def DumpChannelsFromWavve():
   """
   Wavve에서 제공하는 EPG의 채널 목록을 파싱합니다. 
   오늘 날짜로 제공되는 EPG만 해당됩니다. \n
   @return [
-    {
-      'last update': 'yyyy/mm/dd hh/mm/ss',
-      'total': '채널갯수'
-    },
     {
       'WAVVE Name': '채널이름',
       'Icon_url': 'https://ddns/path/to/icon',
@@ -52,7 +48,5 @@ def DumpChannelsFromWavve():
       'Source': 'WAVVE',
       'ServiceId': ch_id
     })
-  
-  headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(result)}]
 
-  return headers + result
+  return result

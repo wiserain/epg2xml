@@ -1,15 +1,10 @@
 import json
 import requests
-from datetime import datetime
 
 def DumpChannelsFromSkb():
   """
   SKB에서 제공하는 EPG의 채널 목록을 파싱합니다. \n
   @return [
-    {
-      'last update': 'yyyy/mm/dd hh/mm/ss',
-      'total': '채널갯수'
-    },
     {
       'SKB Name': '채널이름', 
       'SKBCh': 채널번호,
@@ -45,7 +40,5 @@ def DumpChannelsFromSkb():
       'Source': 'SKB',
       'ServiceId': ch_id
     })
-  
-  headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(result)}]
 
-  return headers + result
+  return result
