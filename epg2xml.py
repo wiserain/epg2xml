@@ -18,7 +18,7 @@ from xml.sax.saxutils import escape as _escape, unescape
 #
 # default variables
 #
-__version__ = '1.5.0'
+__version__ = '1.5.1'
 today = date.today()
 ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
 req_timeout = 15
@@ -802,7 +802,7 @@ def GetEPGFromTVING(reqChannels):
             programName = sch[get_from]['name']['ko']
             subprogramName = sch[get_from]['name']['en'] if sch[get_from]['name']['en'] else ''
 
-            category = sch[get_from]['category1_name']['ko']
+            category = sch[get_from]['category1_name']['ko'] if sch[get_from]['category1_name']['ko'] else ''
             actors = ','.join(sch[get_from]['actor'])
             producers = ','.join(sch[get_from]['director'])
 
@@ -1093,8 +1093,8 @@ if sys.maxunicode >= 0x10000:  # not narrow build
         (0x9FFFE, 0x9FFFF), (0xAFFFE, 0xAFFFF), (0xBFFFE, 0xBFFFF), (0xCFFFE, 0xCFFFF),
         (0xDFFFE, 0xDFFFF), (0xEFFFE, 0xEFFFF), (0xFFFFE, 0xFFFFF), (0x10FFFE, 0x10FFFF)
     ])
-_illegal_ranges = ["%s-%s" % (chr(low), chr(high)) for (low, high) in _illegal_unichrs]
-_illegal_xml_chars_RE = re.compile(u'[%s]' % u''.join(_illegal_ranges))
+_illegal_ranges = [fr'{chr(low)}-{chr(high)}' for (low, high) in _illegal_unichrs]
+_illegal_xml_chars_RE = re.compile('[' + ''.join(_illegal_ranges) + ']')
 
 
 def escape(s):
