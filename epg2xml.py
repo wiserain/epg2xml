@@ -797,7 +797,7 @@ def GetEPGFromTVING(reqChannels):
             get_from = 'movie' if sch['movie'] else 'program'
             img_code = 'CAIM2100' if sch['movie'] else 'CAIP0900'
 
-            rating = gcode[sch[get_from]['grade_code']]
+            rating = gcode[sch[get_from]['grade_code']] if sch[get_from]['grade_code'] else 0
 
             programName = sch[get_from]['name']['ko']
             subprogramName = sch[get_from]['name']['en'] if sch[get_from]['name']['en'] else ''
