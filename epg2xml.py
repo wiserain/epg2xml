@@ -174,7 +174,7 @@ def GetEPGFromKT(ChannelInfos):
         dump_channels('KT', all_channels)
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
-        log.error('체널 목록을 가져오지 못했습니다: %s', str(e))
+        log.error('채널 목록을 가져오지 못했습니다: %s', str(e))
         all_services = [x[3] for x in ChannelInfos]
 
     for ChannelInfo in ChannelInfos:
@@ -296,7 +296,7 @@ def GetEPGFromSK(ChannelInfos):
         dump_channels('SK', all_channels)
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
-        log.error('체널 목록을 가져오지 못했습니다: %s', str(e))
+        log.error('채널 목록을 가져오지 못했습니다: %s', str(e))
         all_services = [x[3] for x in ChannelInfos]
 
     # remove unavailable channels in advance
@@ -366,7 +366,7 @@ def GetEPGFromSKB(ChannelInfos):
         dump_channels('SKB', all_channels)
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
-        log.error('체널 목록을 가져오지 못했습니다: %s', str(e))
+        log.error('채널 목록을 가져오지 못했습니다: %s', str(e))
         all_services = [x[3] for x in ChannelInfos]
 
     for ChannelInfo in ChannelInfos:
