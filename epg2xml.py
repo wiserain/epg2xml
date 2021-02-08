@@ -1057,7 +1057,11 @@ def load_json(file_path):
 def dump_json(file_path, data):
     try:
         with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+            txt = json.dumps(data, ensure_ascii=False, indent=2)
+            # for compact form of channellist in json files
+            txt = re.sub(r'\,\n\s{4}\"', ', "', txt)
+            txt = re.sub(r'\s{2}\{\s+(.*)\s+\}', r'  { \g<1> }', txt)
+            f.write(txt)
     except Exception as e:
         log.warning("파일 저장 중 에러: %s", file_path)
         log.warning(str(e))
