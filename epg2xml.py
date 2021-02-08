@@ -546,6 +546,8 @@ def GetEPGFromWAVVE(reqChannels):
     # remove unavailable channels in advance
     plog.debug('요청 채널 분석중 ...')
     all_services = [x['channelid'] for x in channellist]
+    if args['MyChannels'] == '*':
+        reqChannels = all_channels
     tmpChannels = []
     for reqChannel in reqChannels:
         if reqChannel['ServiceId'] in all_services:
@@ -553,8 +555,6 @@ def GetEPGFromWAVVE(reqChannels):
         else:
             plog.warning(f'없는 서비스 아이디입니다: {reqChannel}')
     plog.info(f'요청 {len(reqChannels):d} / 불가 {len(reqChannels) - len(tmpChannels):d} / 최종 {len(tmpChannels)}')
-
-    reqChannels = all_channels if args['MyChannels'] == '*' else tmpChannels
 
     # for caching program details
     programcache = {}
