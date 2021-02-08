@@ -383,7 +383,7 @@ def GetEPGFromSKB(ChannelInfos):
             plog.warning(f'없는 서비스 아이디입니다: {ChannelInfo}')
             continue
         epginfo = []
-        for k in range(period):
+        for k in range(min(period, 4)):
             day = today + timedelta(days=k)
             params.update({'key_depth2': ChannelInfo[3], 'key_depth3': day.strftime('%Y%m%d')})
             data = request_data(url, params, method='GET', output='html', session=sess)
