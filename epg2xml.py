@@ -89,8 +89,8 @@ except ImportError:
     log.error("requests 모듈이 설치되지 않았습니다.")
     sys.exit(1)
 
-if list(sys.version_info[:2]) < [3, 5]:
-    log.error("python 3.5+에서 실행하세요.")
+if list(sys.version_info[:2]) < [3, 6]:
+    log.error("python 3.6+에서 실행하세요.")
     sys.exit(1)
 
 
