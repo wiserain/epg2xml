@@ -227,7 +227,7 @@ def GetEPGFromLG(ChannelInfos):
     plog.info(f'요청 채널 {len(ChannelInfos):d}')
     for ChannelInfo in ChannelInfos:
         epginfo = []
-        for k in range(period):
+        for k in range(min(period, 3)):
             day = today + timedelta(days=k)
             params.update({'chnlCd': ChannelInfo[3], 'evntCmpYmd': day.strftime('%Y%m%d')})
             data = request_data(url, params, method='POST', output='html', session=sess)
