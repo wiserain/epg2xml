@@ -435,7 +435,7 @@ def GetEPGFromSKB(ChannelInfos):
                     break
             except Exception as e:
                 plog.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
-            epgzip(epginfo)
+        epgzip(epginfo)
         plog.info('%s', ChannelInfo[1])
 
 
