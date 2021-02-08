@@ -32,18 +32,18 @@ channelfile = os.path.join(__dirpath__, 'Channel.json')
 
 # parse command-line arguments
 parser = argparse.ArgumentParser(description='EPG 정보를 XML로 만드는 프로그램')
-parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
-parser.add_argument('--config', dest='configfile', default=configfile, help='설정 파일 경로 (기본값: %s)' % configfile)
-parser.add_argument('--logfile', default=logfile, help='로그 파일 경로 (기본값: %s)' % logfile)
+parser.add_argument('-v', '--version', action='version', version=f'%(prog)s v{__version__}')
+parser.add_argument('--config', dest='configfile', default=configfile, help=f'설정 파일 경로 (기본값: {configfile})')
+parser.add_argument('--logfile', default=logfile, help=f'로그 파일 경로 (기본값: {logfile})')
 parser.add_argument('--loglevel', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO', help='로그 레벨 (기본값: INFO)')
-parser.add_argument('--channelfile', default=channelfile, help='채널 파일 경로 (기본값: %s)' % channelfile)
+parser.add_argument('--channelfile', default=channelfile, help=f'채널 파일 경로 (기본값: {channelfile})')
 parser.add_argument('-i', '--isp', dest='MyISP', choices=['ALL', 'KT', 'LG', 'SK', 'SKB'], help='사용하는 ISP 선택')
 parser.add_argument('-c', '--channelid', dest='MyChannels', metavar='CHANNELID', help='채널 ID를 ,와 -, *를 적절히 조합하여 지정 (예: -3,5,7-9,11-)')
 parser.add_argument('-n', '--ndays', dest='default_fetch_limit', help='epg 데이터 가져오는 기간')
 arg1 = parser.add_mutually_exclusive_group()
 arg1.add_argument('-d', '--display', dest='output', action='store_const', const='d', help='생성된 EPG를 화면에 출력')
-arg1.add_argument('-o', '--outfile', dest='default_xml_file', metavar='XMLTVFILE', nargs='?', const='xmltv.xml', help='생성된 EPG를 파일로 저장 (기본경로: %s)' % 'xmltv.xml')
-arg1.add_argument('-s', '--socket', dest='default_xml_socket', metavar='XMLTVSOCK', nargs='?', const='xmltv.sock', help='생성된 EPG를 소켓으로 전송 (기본경로: %s)' % 'xmltv.sock')
+arg1.add_argument('-o', '--outfile', dest='default_xml_file', metavar='XMLTVFILE', nargs='?', const='xmltv.xml', help='생성된 EPG를 파일로 저장 (기본경로: xmltv.xml)')
+arg1.add_argument('-s', '--socket', dest='default_xml_socket', metavar='XMLTVSOCK', nargs='?', const='xmltv.sock', help='생성된 EPG를 소켓으로 전송 (기본경로: xmltv.sock)')
 args = vars(parser.parse_args())
 if args['default_xml_file']:
     args['output'] = 'o'
@@ -100,7 +100,7 @@ def getEpg():
     # XML 헤더 시작
     print('<?xml version="1.0" encoding="UTF-8"?>')
     print('<!DOCTYPE tv SYSTEM "xmltv.dtd">\n')
-    print('<tv generator-info-name="epg2xml ' + __version__ + '">')
+    print(f'<tv generator-info-name="epg2xml v{__version__}">')
 
     ChannelInfos = []
     for Channeldata in Channeldatajson:     # Get Channel & Print Channel info
@@ -111,20 +111,20 @@ def getEpg():
             ChannelServiceId = Channeldata['ServiceId']
             ChannelIconUrl = escape(Channeldata['Icon_url'])
             ChannelInfos.append([ChannelId, ChannelName, ChannelSource, ChannelServiceId])
-            print('  <channel id="%s">' % ChannelId)
+            print(f'  <channel id="{ChannelId}">')
             if MyISP != "ALL" and Channeldata[MyISP+'Ch'] is not None:
-                ChannelNumber = str(Channeldata[MyISP+'Ch'])
-                ChannelISPName = escape(Channeldata[MyISP+' Name'])
-                print('    <display-name>%s</display-name>' % ChannelName)
-                print('    <display-name>%s</display-name>' % ChannelISPName)
-                print('    <display-name>%s</display-name>' % ChannelNumber)
-                print('    <display-name>%s</display-name>' % (ChannelNumber+' '+ChannelISPName))
+                ChannelNumber = str(Channeldata[f'{MyISP}Ch'])
+                ChannelISPName = escape(Channeldata[f'{MyISP} Name'])
+                print(f'    <display-name>{ChannelName}</display-name>')
+                print(f'    <display-name>{ChannelISPName}</display-name>')
+                print(f'    <display-name>{ChannelNumber}</display-name>')
+                print(f'    <display-name>{ChannelNumber} {ChannelISPName}</display-name>')
             elif MyISP == "ALL":
-                print('    <display-name>%s</display-name>' % ChannelName)
+                print(f'    <display-name>{ChannelName}</display-name>')
             if IconUrl:
-                print('    <icon src="%s/%s.png" />' % (IconUrl, ChannelId))
+                print(f'    <icon src="{IconUrl}/{ChannelId}.png" />')
             else:
-                print('    <icon src="%s" />' % ChannelIconUrl)
+                print(f'    <icon src="{ChannelIconUrl}" />')
             print('  </channel>')
 
     # Print Program Information
@@ -174,16 +174,16 @@ def GetEPGFromKT(ChannelInfos):
             'ServiceId': x.split()[0]
         } for x in raw_channels]
         dump_channels(provider_name, all_channels)
-        plog.info('서비스 채널 %d', len(all_channels))
+        plog.info(f'서비스 채널 {len(all_channels):d}')
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
-        plog.error('채널 목록을 가져오지 못했습니다: %s', str(e))
+        plog.error(f'채널 목록을 가져오지 못했습니다: {str(e)}')
         return
 
-    plog.info('요청 채널 %s', len(ChannelInfos))
+    plog.info(f'요청 채널 {len(ChannelInfos):d}')
     for ChannelInfo in ChannelInfos:
         if ChannelInfo[3] not in all_services:
-            plog.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
+            plog.warning(f'없는 서비스 아이디입니다: {ChannelInfo}')
             continue
         epginfo = []
         for k in range(period):
@@ -206,9 +206,9 @@ def GetEPGFromKT(ChannelInfos):
                                 rating = int(grade.group(1))
                         epginfo.append([ChannelInfo[0], startTime, programName, '', '', '', '', category, '', False, rating])
             except Exception as e:
-                plog.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+                plog.error(f'파싱 에러: {ChannelInfo}: {str(e)}')
         epgzip(epginfo)
-        plog.info('%s', ChannelInfo[1])
+        plog.info(ChannelInfo[1])
 
 
 def GetEPGFromLG(ChannelInfos):
@@ -224,7 +224,7 @@ def GetEPGFromLG(ChannelInfos):
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
-    plog.info('요청 채널 %s', len(ChannelInfos))
+    plog.info(f'요청 채널 {len(ChannelInfos):d}')
     for ChannelInfo in ChannelInfos:
         epginfo = []
         for k in range(period):
@@ -235,7 +235,7 @@ def GetEPGFromLG(ChannelInfos):
                 data = data.replace('<재>', '&lt;재&gt;').replace(' [..', '').replace(' (..', '')
                 soup = BeautifulSoup(data, htmlparser, parse_only=SoupStrainer('table'))
                 if not str(soup):
-                    plog.warning('EPG 정보가 없거나 없는 채널입니다: %s' % ChannelInfo)
+                    plog.warning(f'EPG 정보가 없거나 없는 채널입니다: {ChannelInfo}')
                     # 오늘 없으면 내일도 없는 채널로 간주
                     break
                 for row in soup.find('table').tbody.find_all('tr'):
@@ -257,9 +257,9 @@ def GetEPGFromLG(ChannelInfos):
                     category = cell[2].text.strip()
                     epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, '', '', '', category, episode, rebroadcast, rating])
             except Exception as e:
-                plog.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+                plog.error(f'파싱 에러: {ChannelInfo}: {str(e)}')
         epgzip(epginfo)
-        plog.info('%s', ChannelInfo[1])
+        plog.info(ChannelInfo[1])
 
 
 def GetEPGFromSK(ChannelInfos):
@@ -268,7 +268,7 @@ def GetEPGFromSK(ChannelInfos):
 
     plog = ProviderLog(log, 'SK')
     for ChannelInfo in ChannelInfos:
-        plog.warning('서비스 중지! 다른 소스로 변경해서 사용하세요: %s' % ChannelInfo)
+        plog.warning(f'서비스 중지! 다른 소스로 변경해서 사용하세요: {ChannelInfo}')
 
     """
     url = 'http://mobilebtv.com:8080/api/v3.0/epg'
@@ -302,7 +302,7 @@ def GetEPGFromSK(ChannelInfos):
         dump_channels('SK', all_channels)
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
-        plog.error('채널 목록을 가져오지 못했습니다: %s', str(e))
+        plog.error(f'채널 목록을 가져오지 못했습니다: {str(e)}')
         all_services = [x[3] for x in ChannelInfos]
 
     # remove unavailable channels in advance
@@ -312,7 +312,7 @@ def GetEPGFromSK(ChannelInfos):
         if ServiceId in all_services:
             newChannelInfos.append(ChannelInfo)
         else:
-            plog.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
+            plog.warning(f'없는 서비스 아이디입니다: {ChannelInfo}')
 
     params = {
         'o_date': 'EPGDATE',
@@ -345,7 +345,7 @@ def GetEPGFromSKB(ChannelInfos):
         if match:
             tag = tag.strip()
             programName = unescape(match.group(1)).replace('<', '&lt;').replace('>', '&gt;').strip()
-            programName = '<' + tag + ' class="cont">' + programName
+            programName = f'<{tag} class="cont">{programName}'
             return programName
         else:
             return ''
@@ -371,16 +371,16 @@ def GetEPGFromSKB(ChannelInfos):
             'ServiceId': x['c_menu'],
         } for x in request_data(url_ch, params_ch, method='POST', output='json', session=sess) if x['depth'] == '2']
         dump_channels(provider_name, all_channels)
-        plog.info('서비스 채널 %d', len(all_channels))
+        plog.info(f'서비스 채널 {len(all_channels):d}')
         all_services = [x['ServiceId'] for x in all_channels]
     except Exception as e:
-        plog.error('채널 목록을 가져오지 못했습니다: %s', str(e))
+        plog.error(f'채널 목록을 가져오지 못했습니다: {str(e)}')
         return
 
-    plog.info('요청 채널 %s', len(ChannelInfos))
+    plog.info(f'요청 채널 {len(ChannelInfos):d}')
     for ChannelInfo in ChannelInfos:
         if ChannelInfo[3] not in all_services:
-            plog.warning('없는 서비스 아이디입니다: %s', ChannelInfo)
+            plog.warning(f'없는 서비스 아이디입니다: {ChannelInfo}')
             continue
         epginfo = []
         for k in range(period):
@@ -431,13 +431,13 @@ def GetEPGFromSKB(ChannelInfos):
 
                         epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, '', '', '', '', episode, rebroadcast, rating])
                 else:
-                    plog.warning('EPG 정보가 없거나 없는 채널입니다: %s' % ChannelInfo)
+                    plog.warning(f'EPG 정보가 없거나 없는 채널입니다: {ChannelInfo}')
                     # 오늘 없으면 내일도 없는 채널로 간주
                     break
             except Exception as e:
-                plog.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+                plog.error(f'파싱 에러: {ChannelInfo}: {str(e)}')
         epgzip(epginfo)
-        plog.info('%s', ChannelInfo[1])
+        plog.info(ChannelInfo[1])
 
 
 def GetEPGFromNaver(ChannelInfos):
@@ -459,7 +459,7 @@ def GetEPGFromNaver(ChannelInfos):
     sess = requests.session()
     sess.headers.update({'User-Agent': ua, 'Referer': referer})
 
-    plog.info('요청 채널 %s', len(ChannelInfos))
+    plog.info(f'요청 채널 {len(ChannelInfos):d}')
     for ChannelInfo in ChannelInfos:
         epginfo = []
         for k in range(period):
@@ -468,7 +468,7 @@ def GetEPGFromNaver(ChannelInfos):
             data = request_data(url, params, method='GET', output='json', session=sess)
             try:
                 if data['statusCode'].lower() != 'success':
-                    plog.error('유효한 응답이 아닙니다: %s %s' % (ChannelInfo, data['statusCode']))
+                    plog.error(f'유효한 응답이 아닙니다: {ChannelInfo} {data["statusCode"]}')
                     continue
 
                 soup = BeautifulSoup(''.join(data['dataHtml']), htmlparser)
@@ -485,9 +485,9 @@ def GetEPGFromNaver(ChannelInfos):
                         subprogramName = ''
                     epginfo.append([ChannelInfo[0], startTime, programName, subprogramName, '', '', '', '', '', rebroadcast, rating])
             except Exception as e:
-                plog.error('파싱 에러: %s: %s' % (ChannelInfo, str(e)))
+                plog.error(f'파싱 에러: {ChannelInfo}: {str(e)}')
         epgzip(epginfo)
-        plog.info('%s', ChannelInfo[1])
+        plog.info(ChannelInfo[1])
 
 
 def GetEPGFromWAVVE(reqChannels):
@@ -541,7 +541,7 @@ def GetEPGFromWAVVE(reqChannels):
         'ServiceId': x['channelid']
     } for x in channellist]
     dump_channels(provider_name, all_channels)
-    plog.info('서비스 채널 %d', len(all_channels))
+    plog.info(f'서비스 채널 {len(all_channels):d}')
 
     # remove unavailable channels in advance
     plog.debug('요청 채널 분석중 ...')
@@ -551,8 +551,8 @@ def GetEPGFromWAVVE(reqChannels):
         if reqChannel['ServiceId'] in all_services:
             tmpChannels.append(reqChannel)
         else:
-            plog.warning('없는 서비스 아이디입니다: %s', reqChannel)
-    plog.info('요청 {} / 불가 {} / 최종 {}'.format(len(reqChannels), len(reqChannels) - len(tmpChannels), len(tmpChannels)))
+            plog.warning(f'없는 서비스 아이디입니다: {reqChannel}')
+    plog.info(f'요청 {len(reqChannels):d} / 불가 {len(reqChannels) - len(tmpChannels):d} / 최종 {len(tmpChannels)}')
 
     reqChannels = all_channels if args['MyChannels'] == '*' else tmpChannels
 
@@ -562,7 +562,7 @@ def GetEPGFromWAVVE(reqChannels):
     try:
         for reqChannel in reqChannels:
             if not ('ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict):
-                plog.warning('EPG 정보가 없거나 없는 채널입니다: %s' % reqChannel)
+                plog.warning(f'EPG 정보가 없거나 없는 채널입니다: {reqChannel}')
                 continue
 
             # 채널이름은 그대로 들어오고 프로그램 제목은 escape되어 들어옴
@@ -571,9 +571,9 @@ def GetEPGFromWAVVE(reqChannels):
             channelname = reqChannel['Name'] if 'Name' in reqChannel else srcChannel['channelname'].strip()
             channelicon = reqChannel['Icon_url'] if 'Icon_url' in reqChannel else 'https://' + srcChannel['channelimage']
             # channelliveimg = "https://wchimg.pooq.co.kr/pooqlive/thumbnail/%s.jpg" % reqChannel['ServiceId']
-            print('  <channel id="%s">' % channelid)
-            print('    <icon src="%s" />' % escape(channelicon))
-            print('    <display-name>%s</display-name>' % escape(channelname))
+            print(f'  <channel id="{channelid}">')
+            print(f'    <icon src="{escape(channelicon)}" />')
+            print(f'    <display-name>{escape(channelname)}</display-name>')
             print('  </channel>')
 
             for program in srcChannel['list']:
@@ -637,9 +637,9 @@ def GetEPGFromWAVVE(reqChannels):
                         'iconurl': iconurl
                     })
                 except Exception as e:
-                    plog.error('파싱 에러: %s' % str(e))
+                    plog.error(f'파싱 에러: {str(e)}')
                     plog.error(program)
-            plog.info('%s', channelname)
+            plog.info(channelname)
     except Exception as e:
         plog.error(str(e))
 
@@ -759,7 +759,7 @@ def GetEPGFromTVING(reqChannels):
         'ServiceId': x['channel_code']
     } for x in channellist if x['schedules'] is not None]
     dump_channels(provider_name, all_channels)
-    plog.info('서비스 채널 %d', len(all_channels))
+    plog.info(f'서비스 채널 {len(all_channels):d}')
 
     # remove unavailable channels in advance
     plog.debug('요청 채널 분석중 ...')
@@ -769,8 +769,8 @@ def GetEPGFromTVING(reqChannels):
         if reqChannel['ServiceId'] in all_services:
             tmpChannels.append(reqChannel)
         else:
-            plog.warning('없는 서비스 아이디입니다: %s', reqChannel)
-    plog.info('요청 {} / 불가 {} / 최종 {}'.format(len(reqChannels), len(reqChannels) - len(tmpChannels), len(tmpChannels)))
+            plog.warning(f'없는 서비스 아이디입니다: {reqChannel}')
+    plog.info(f'요청 {len(reqChannels):d} / 불가 {len(reqChannels) - len(tmpChannels):d} / 최종 {len(tmpChannels)}')
 
     reqChannels = all_channels if args['MyChannels'] == '*' else tmpChannels
 
@@ -794,15 +794,15 @@ def GetEPGFromTVING(reqChannels):
 
     for reqChannel in reqChannels:
         if not ('ServiceId' in reqChannel and reqChannel['ServiceId'] in channeldict):
-            plog.warning('EPG 정보가 없거나 없는 채널입니다: %s' % reqChannel)
+            plog.warning(f'EPG 정보가 없거나 없는 채널입니다: {reqChannel}')
             continue
         srcChannel = channeldict[reqChannel['ServiceId']]
         channelid = reqChannel['Id'] if 'Id' in reqChannel else 'tving|%s' % srcChannel['channel_code']
         channelname = reqChannel['Name'] if 'Name' in reqChannel else srcChannel['channel_name']['ko'].strip()
         channelicon = reqChannel['Icon_url'] if 'Icon_url' in reqChannel else get_imgurl(srcChannel)
-        print('  <channel id="%s">' % channelid)
-        print('    <icon src="%s" />' % escape(channelicon))
-        print('    <display-name>%s</display-name>' % escape(channelname))
+        print(f'  <channel id="{channelid}">')
+        print(f'    <icon src="{escape(channelicon)}" />')
+        print(f'    <display-name>{escape(channelname)}</display-name>')
         print('  </channel>')
 
         for sch in srcChannel['schedules']:
@@ -851,7 +851,7 @@ def GetEPGFromTVING(reqChannels):
                 'rating': rating,
                 'iconurl': iconurl
             })
-        plog.info('%s', channelname)
+        plog.info(channelname)
 
 
 def epgzip(epginfo):
@@ -911,32 +911,32 @@ def writeProgram(programdata):
             episode_ns = int(episode) - 1
         except ValueError:
             episode_ns = int(episode.split(',', 1)[0]) - 1
-        episode_ns = '0' + '.' + str(episode_ns) + '.' + '0' + '/' + '0'
+        episode_ns = f'0.{str(episode_ns)}.0/0'
         episode_on = episode
     rebroadcast = programdata['rebroadcast']
     if episode and addepisode == 'y':
-        programName = programName + ' (' + str(episode) + '회)'
+        programName = f'{programName} ({str(episode)}회)'
     if rebroadcast and (addrebroadcast == 'y'):
         programName = programName + ' (재)'
     if programdata['rating'] == 0:
         rating = '전체 관람가'
     else:
-        rating = '%s세 이상 관람가' % (programdata['rating'])
+        rating = f'{programdata["rating"]}세 이상 관람가'
     if addverbose == 'y':
         desc = programName
         if subprogramName:
-            desc += '\n부제 : ' + subprogramName
+            desc += f'\n부제 : {subprogramName}'
         if rebroadcast and (addrebroadcast == 'y'):
             desc += '\n방송 : 재방송'
         if episode:
-            desc += '\n회차 : ' + str(episode) + '회'
+            desc += f'\n회차 : {str(episode)}회'
         if category:
-            desc += '\n장르 : ' + category
+            desc += f'\n장르 : {category}'
         if actors:
-            desc += '\n출연 : ' + actors.strip()
+            desc += f'\n출연 : {actors.strip()}'
         if producers:
-            desc += '\n제작 : ' + producers.strip()
-        desc += '\n등급 : ' + rating
+            desc += f'\n제작 : {producers.strip()}'
+        desc += f'\n등급 : {rating}'
     else:
         desc = ''
     if programdata['desc']:
@@ -962,39 +962,39 @@ def writeProgram(programdata):
     for key, value in contentTypeDict.items():
         if key in category:
             contentType = value
-    print('  <programme start="%s +0900" stop="%s +0900" channel="%s">' % (startTime, endTime, ChannelId))
-    print('    <title lang="kr">%s</title>' % programName)
+    print(f'  <programme start="{startTime} +0900" stop="{endTime} +0900" channel="{ChannelId}">')
+    print(f'    <title lang="kr">{programName}</title>')
     if subprogramName:
-        print('    <sub-title lang="kr">%s</sub-title>' % subprogramName)
+        print(f'    <sub-title lang="kr">{subprogramName}</sub-title>')
     if addverbose == 'y':
-        print('    <desc lang="kr">%s</desc>' % desc)
+        print(f'    <desc lang="kr">{desc}</desc>')
         if actors or producers:
             print('    <credits>')
             if actors:
                 for actor in actors.split(','):
                     if actor.strip():
-                        print('      <actor>%s</actor>' % actor.strip())
+                        print(f'      <actor>{actor.strip()}</actor>')
             if producers:
                 for producer in producers.split(','):
                     if producer.strip():
-                        print('      <producer>%s</producer>' % producer.strip())
+                        print(f'      <producer>{producer.strip()}</producer>')
             print('    </credits>')
     if category:
-        print('    <category lang="kr">%s</category>' % category)
+        print(f'    <category lang="kr">{category}</category>')
     if contentType:
-        print('    <category lang="en">%s</category>' % contentType)
+        print(f'    <category lang="en">{contentType}</category>')
     if episode and addxmltvns == 'y':
-        print('    <episode-num system="xmltv_ns">%s</episode-num>' % episode_ns)
+        print(f'    <episode-num system="xmltv_ns">{episode_ns}</episode-num>')
     if episode and addxmltvns != 'y':
-        print('    <episode-num system="onscreen">%s</episode-num>' % episode_on)
+        print(f'    <episode-num system="onscreen">{episode_on}</episode-num>')
     if rebroadcast:
         print('    <previously-shown />')
     if rating:
         print('    <rating system="KMRB">')
-        print('      <value>%s</value>' % rating)
+        print(f'      <value>{rating}</value>')
         print('    </rating>')
     if ('iconurl' in programdata) and programdata['iconurl']:
-        print('    <icon src="%s" />' % escape(programdata['iconurl']))
+        print(f"    <icon src=\"{escape(programdata['iconurl'])}\" />")
     print('  </programme>')
 
 
@@ -1059,7 +1059,7 @@ def load_json(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        log.error("파일 읽는 중 에러: %s", file_path)
+        log.error(f"파일 읽는 중 에러: {file_path}")
         log.error(str(e))
         sys.exit(1)
 
@@ -1073,15 +1073,15 @@ def dump_json(file_path, data):
             txt = re.sub(r'\s{2}\{\s+(.*)\s+\}', r'  { \g<1> }', txt)
             f.write(txt)
     except Exception as e:
-        log.warning("파일 저장 중 에러: %s", file_path)
+        log.warning(f"파일 저장 중 에러: {file_path}")
         log.warning(str(e))
 
 
 def dump_channels(name_suffix, channels):
-    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Channel_%s.json' % name_suffix)
+    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'Channel_{name_suffix}.json')
     headers = [{'last update': datetime.now().strftime('%Y/%m/%d %H:%M:%S'), 'total': len(channels)}]
     dump_json(filename, headers + channels)
-    log.debug('[%s] 서비스 채널 목록 저장 %s', name_suffix, filename)
+    log.debug(f'[{name_suffix}] 서비스 채널 목록 저장 {filename}')
 
 
 def request_data(url, params, method='GET', output='html', session=None, ret=''):
@@ -1101,7 +1101,7 @@ def request_data(url, params, method='GET', output='html', session=None, ret='')
         else:
             raise ValueError('Unexpected output type: %s', output)
     except Exception as e:
-        log.error('요청 중 에러: %s' % str(e))
+        log.error(f'요청 중 에러: {str(e)}')
     time.sleep(req_sleep)
     return ret
 
@@ -1129,7 +1129,7 @@ class ProviderLog(logging.LoggerAdapter):
         self.prefix = prefix
 
     def process(self, msg, kwargs):
-        return '[%s] %s' % (self.prefix, msg), kwargs
+        return f'[{self.prefix}] {msg}', kwargs
 
 
 Channeldatajson = load_json(args['channelfile'])
@@ -1155,12 +1155,12 @@ conf = {
 for k in conf:
     if k in args and args[k]:
         conf[k] = args[k]
-        log.debug('%s=%s by %s', k, args[k], 'cmd')
+        log.debug(f'{k}={args[k]} by cmd')
     elif k in json_conf and json_conf[k]:
         conf[k] = json_conf[k]
-        log.debug('%s=%s by %s', k, json_conf[k], 'configfile')
+        log.debug(f'{k}={json_conf[k]} by configfile')
     else:
-        log.debug('%s=%s by %s', k, conf[k], 'default')
+        log.debug(f'{k}={conf[k]} by default')
 
 #
 # validate settings
@@ -1184,7 +1184,7 @@ for r in conf['MyChannels'].strip('"').strip("'").split(','):
             first = int(a) if a.strip() != '' else first
             last = int(b) if b.strip() != '' else last
         else:
-            log.error('MyChannels 범위에 문제가 있습니다: %s', conf['MyChannels'])
+            log.error(f"MyChannels 범위에 문제가 있습니다: {conf['MyChannels']}")
             sys.exit(1)
     if first < min_cid:
         first = min_cid
