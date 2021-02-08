@@ -39,6 +39,7 @@ parser.add_argument('--loglevel', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
 parser.add_argument('--channelfile', default=channelfile, help='채널 파일 경로 (기본값: %s)' % channelfile)
 parser.add_argument('-i', '--isp', dest='MyISP', choices=['ALL', 'KT', 'LG', 'SK', 'SKB'], help='사용하는 ISP 선택')
 parser.add_argument('-c', '--channelid', dest='MyChannels', metavar='CHANNELID', help='채널 ID를 ,와 -, *를 적절히 조합하여 지정 (예: -3,5,7-9,11-)')
+parser.add_argument('-n', '--ndays', dest='default_fetch_limit', help='epg 데이터 가져오는 기간')
 arg1 = parser.add_mutually_exclusive_group()
 arg1.add_argument('-d', '--display', dest='output', action='store_const', const='d', help='생성된 EPG를 화면에 출력')
 arg1.add_argument('-o', '--outfile', dest='default_xml_file', metavar='XMLTVFILE', nargs='?', const='xmltv.xml', help='생성된 EPG를 파일로 저장 (기본경로: %s)' % 'xmltv.xml')
@@ -553,8 +554,7 @@ def GetEPGFromWAVVE(reqChannels):
             plog.warning('없는 서비스 아이디입니다: %s', reqChannel)
     plog.info('요청 {} / 불가 {} / 최종 {}'.format(len(reqChannels), len(reqChannels) - len(tmpChannels), len(tmpChannels)))
 
-    # reqChannels = all_channels  # request all channels
-    reqChannels = tmpChannels
+    reqChannels = all_channels if args['MyChannels'] == '*' else tmpChannels
 
     # for caching program details
     programcache = {}
@@ -772,8 +772,7 @@ def GetEPGFromTVING(reqChannels):
             plog.warning('없는 서비스 아이디입니다: %s', reqChannel)
     plog.info('요청 {} / 불가 {} / 최종 {}'.format(len(reqChannels), len(reqChannels) - len(tmpChannels), len(tmpChannels)))
 
-    # reqChannels = all_channels  # request all channels
-    reqChannels = tmpChannels
+    reqChannels = all_channels if args['MyChannels'] == '*' else tmpChannels
 
     channeldict = {}
     for chgroup in grouper([x['ServiceId'].strip() for x in reqChannels], 20):
