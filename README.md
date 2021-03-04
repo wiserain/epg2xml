@@ -8,6 +8,8 @@
 
 - 1.2.8 이후로 python2.7에 대한 지원은 종료 되었습니다. [python2.7 마지막 버전](https://github.com/wiserain/epg2xml/tree/1.2.8py2)
 
+- 1.5.2 이후로 v1에 대한 지원은 종료 되었습니다. [새로운 저장소](https://github.com/epg2xml/epg2xml)에서 v2로 개발을 이어가겠습니다.
+
 ## 지원 소스 및 각각의 특징
 
 | 소스  | 채널 템플릿  | 프로그램 포스터 | 요청수  | 소요시간 | 정보량 | 추천 |
